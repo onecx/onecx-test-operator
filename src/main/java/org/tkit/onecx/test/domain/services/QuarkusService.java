@@ -9,6 +9,7 @@ import org.eclipse.microprofile.openapi.models.OpenAPI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tkit.onecx.test.domain.clients.QuarkusAdminClient;
+import org.tkit.onecx.test.domain.models.ServiceException;
 
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
 import io.smallrye.openapi.runtime.io.Format;
@@ -25,7 +26,7 @@ public class QuarkusService {
             log.debug(data);
             return OpenApiParser.parse(new ByteArrayInputStream(data.getBytes()), Format.YAML);
         } catch (Exception ex) {
-            throw new ParseOpenApiException(ex);
+            throw new ServiceException(ex);
         }
     }
 
@@ -41,10 +42,4 @@ public class QuarkusService {
         }
     }
 
-    public static class ParseOpenApiException extends RuntimeException {
-
-        public ParseOpenApiException(Throwable t) {
-            super(t);
-        }
-    }
 }

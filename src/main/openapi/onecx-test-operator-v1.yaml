@@ -29,14 +29,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExecuteSecurityTestRequest'
+              $ref: '#/components/schemas/SecurityTestRequest'
       responses:
         "200":
           description: execute security test results
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExecuteSecurityTestResponse'
+                $ref: '#/components/schemas/SecurityTestResponse'
         "404":
           description: NOT FOUND
         "400":
@@ -47,7 +47,7 @@ paths:
                 $ref: '#/components/schemas/ProblemDetailResponse'
 components:
   schemas:
-    ExecuteSecurityTestRequest:
+    SecurityTestRequest:
       type: object
       required:
         - id
@@ -60,13 +60,38 @@ components:
           type: string
         "url":
           type: string
-    ExecuteSecurityTestResponse:
+    SecurityTestResponse:
       type: object
       properties:
-        "id":
+        id:
           type: string
-        "status":
+        status:
+          $ref: "#/components/schemas/ExecutionStatus"
+        executions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecurityTestExecution'
+    SecurityTestExecution:
+      type: object
+      properties:
+        path:
           type: string
+        proxy:
+          type: string
+        url:
+          type: string
+        code:
+          type: integer
+        status:
+          $ref: "#/components/schemas/ExecutionStatus"
+        error:
+          type: string
+    ExecutionStatus:
+      type: string
+      enum:
+        - OK
+        - FAILED
+        - ERROR
     ProblemDetailResponse:
       type: object
       properties:
