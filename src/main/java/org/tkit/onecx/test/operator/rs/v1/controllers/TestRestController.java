@@ -9,8 +9,9 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.ws.rs.core.Response;
 
 import org.eclipse.microprofile.openapi.models.OpenAPI;
+import org.eclipse.microprofile.openapi.models.Operation;
+import org.eclipse.microprofile.openapi.models.PathItem.HttpMethod;
 import org.eclipse.microprofile.openapi.models.parameters.Parameter;
-import org.jboss.resteasy.reactive.ClientWebApplicationException;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import org.slf4j.Logger;
@@ -25,7 +26,6 @@ import org.tkit.onecx.test.operator.rs.v1.mappers.TestMapper;
 
 import gen.org.tkit.onecx.test.operator.rs.v1.TestApiService;
 import gen.org.tkit.onecx.test.operator.rs.v1.model.*;
-import io.vertx.core.http.HttpMethod;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.ext.web.client.WebClient;
@@ -88,7 +88,7 @@ public class TestRestController implements TestApiService {
                 log.info("Path: {} proxy: {}", path, proxyPath);
                 var openapi = quarkusService.getOpenApi(path);
 
-                testOpenApi(result, dto.getId(), url, proxyPath, openapi);
+                testOpenApi(result, url, proxyPath, openapi);
             } catch (Exception ex) {
                 log.error("Error execute test for {} - {}, error: {}", path, proxyPath, ex.getMessage(), ex);
                 result.addExecutionsItem(testMapper.createExecutionError(path, proxyPath, ex.getMessage()));
@@ -101,54 +101,50 @@ public class TestRestController implements TestApiService {
         return Response.ok(result).build();
     }
 
-    private void testOpenApi(SecurityTestResponseDTO result, String uuid, String domain, String proxyPath, OpenAPI openapi) {
-        if (openapi == null) {
-            return;
-        }
+    private void testOpenApi(SecurityTestResponseDTO result, String domain, String proxyPath, OpenAPI openapi) {
         if (openapi.getPaths() == null || openapi.getPaths().getPathItems() == null) {
             return;
         }
 
         openapi.getPaths().getPathItems().forEach((path, item) -> {
-            if (item.getOperations() == null) {
-                return;
-            }
-
+            var uri = domain + proxyPath + path;
             item.getOperations().forEach((method, op) -> {
-                var uri = domain + proxyPath + path;
-                log.info("Test {} {}", method, uri);
-
-                try {
-                    var request = WebClient.create(vertx, new WebClientOptions().setVerifyHost(false).setTrustAll(true))
-                            .requestAbs(HttpMethod.valueOf(method.name()), UriTemplate.of(uri));
-
-                    if (op.getParameters() != null) {
-                        op.getParameters().stream()
-                                .filter(p -> p.getIn() == Parameter.In.PATH)
-                                .forEach(p -> request.setTemplateParam(p.getName(), uuid));
-                    }
-
-                    var response = request.send().await().atMost(Duration.ofSeconds(5));
-                    var code = response.statusCode();
-                    var status = code != 401 ? ExecutionStatusDTO.OK : ExecutionStatusDTO.FAILED;
-                    log.error("Test {} {} {} {} {} {}", method, domain, proxyPath, path, code, status);
-
-                    result.addExecutionsItem(testMapper.createExecution(path, proxyPath, status, uri, code));
-                } catch (Exception ex) {
-                    result.addExecutionsItem(testMapper.createExecutionError(path, proxyPath, ex.getMessage()).url(uri));
-                }
+                execute(result, uri, path, proxyPath, method, op);
             });
         });
+    }
+
+    private void execute(SecurityTestResponseDTO result, String uri, String path, String proxyPath, HttpMethod method,
+            Operation op) {
+        log.info("Test {} {}", method, uri);
+
+        try {
+            var request = WebClient.create(vertx, new WebClientOptions().setVerifyHost(false).setTrustAll(true))
+                    .requestAbs(io.vertx.core.http.HttpMethod.valueOf(method.name()), UriTemplate.of(uri));
+
+            if (op.getParameters() != null) {
+                op.getParameters().forEach(p -> {
+                    if (Parameter.In.PATH == p.getIn()) {
+                        request.setTemplateParam(p.getName(), result.getId());
+                    }
+                });
+            }
+
+            var response = request.send().await().atMost(Duration.ofSeconds(5));
+            var code = response.statusCode();
+            var status = code == Response.Status.FORBIDDEN.getStatusCode() ? ExecutionStatusDTO.OK
+                    : ExecutionStatusDTO.FAILED;
+            log.error("Test {} {} {} {}", method, uri, code, status);
+
+            result.addExecutionsItem(testMapper.createExecution(path, proxyPath, status, uri, code));
+        } catch (Exception ex) {
+            result.addExecutionsItem(testMapper.createExecutionError(path, proxyPath, ex.getMessage()).url(uri));
+        }
     }
 
     @ServerExceptionMapper
     public RestResponse<ProblemDetailResponseDTO> constraint(ConstraintViolationException ex) {
         return exceptionMapper.constraint(ex);
-    }
-
-    @ServerExceptionMapper
-    public Response restException(ClientWebApplicationException ex) {
-        return exceptionMapper.clientException(ex);
     }
 
     @ServerExceptionMapper

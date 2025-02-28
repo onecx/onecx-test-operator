@@ -25,9 +25,17 @@ public class K8sExecService {
     @Inject
     KubernetesClient client;
 
+    public K8sExecService(KubernetesClient client) {
+        this.client = client;
+    }
+
     public String execCommandOnPod(String podName, String... cmd) {
         try {
             Pod pod = client.pods().withName(podName).get();
+            if (pod == null) {
+                log.info("Pod with name '{}' not found not found.", podName);
+                return null;
+            }
 
             log.info("Running command: [{}] on pod [{}] in namespace [{}]",
                     Arrays.toString(cmd), pod.getMetadata().getName(), pod.getMetadata().getNamespace());
@@ -52,7 +60,7 @@ public class K8sExecService {
                 .exec(command);
     }
 
-    static class SimpleListener implements ExecListener {
+    public static class SimpleListener implements ExecListener {
 
         private final CompletableFuture<String> data;
         private final ByteArrayOutputStream output;

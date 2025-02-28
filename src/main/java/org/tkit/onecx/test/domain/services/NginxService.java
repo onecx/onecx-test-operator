@@ -27,14 +27,10 @@ public class NginxService {
             var location = matcher.group(0);
 
             var pm = PATTERN_LOCATION_PATH.matcher(location);
-            if (!pm.find()) {
-                continue;
-            }
+            pm.find();
 
             var xm = PATTERN_LOCATION_PROXY_PASS.matcher(location);
-            if (!xm.find()) {
-                continue;
-            }
+            xm.find();
 
             result.put(pm.group(0), xm.group(0));
         }

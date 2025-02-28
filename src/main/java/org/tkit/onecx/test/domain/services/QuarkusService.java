@@ -24,6 +24,7 @@ public class QuarkusService {
         try {
             var data = getOpenApiSchema(url);
             log.debug(data);
+            System.out.println("###$$## " + data);
             return OpenApiParser.parse(new ByteArrayInputStream(data.getBytes()), Format.YAML);
         } catch (Exception ex) {
             throw new ServiceException(ex);
