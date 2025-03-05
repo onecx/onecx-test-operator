@@ -60,7 +60,7 @@ class BaseRestControllerTest extends AbstractTest {
                 .contentType(APPLICATION_JSON)
                 .post()
                 .then()
-                
+
                 .statusCode(BAD_REQUEST.getStatusCode())
                 .extract().as(ProblemDetailResponseDTO.class);
 
@@ -503,7 +503,7 @@ class BaseRestControllerTest extends AbstractTest {
                 .body(request).contentType(APPLICATION_JSON)
                 .post()
                 .then()
-                
+
                 .statusCode(OK.getStatusCode())
                 .extract().as(SecurityTestResponseDTO.class);
 
@@ -541,7 +541,7 @@ class BaseRestControllerTest extends AbstractTest {
                 .body(request).contentType(APPLICATION_JSON)
                 .post()
                 .then()
-                
+
                 .statusCode(OK.getStatusCode())
                 .extract().as(SecurityTestResponseDTO.class);
 
