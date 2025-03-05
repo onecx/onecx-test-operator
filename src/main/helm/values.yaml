@@ -1,0 +1,25 @@
+app:
+  serviceAccount:
+    enabled: true
+  name: operator
+  image:
+    repository: "onecx/onecx-test-operator"
+  envCustom:
+    - name: KUBERNETES_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+  operator:
+    # Permission
+    permission:
+      enabled: true
+      spec:
+        permissions:
+          test:
+            execute: permission to run test
+    keycloak:
+      client:
+        enabled: true
+        spec:
+          kcConfig:
+            defaultClientScopes: [ ocx-pm:read ]

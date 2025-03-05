@@ -1,0 +1,123 @@
+---
+openapi: 3.0.3
+info:
+  title: onecx-test-operator
+  description: OneCX Test Operator
+  version: 1.0.0
+  contact:
+    email: "tkit_dev@1000kit.org"
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+servers:
+  - url: "http://onecx-test-operator:8080"
+tags:
+  - name: test
+paths:
+  /test/security:
+    post:
+      x-onecx:
+        permissions:
+          test:
+            - execute
+      tags:
+        - test
+      description: execute security test
+      operationId: executeSecurityTest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityTestRequest'
+      responses:
+        "200":
+          description: execute security test results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityTestResponse'
+        "404":
+          description: NOT FOUND
+        "400":
+          description: BAD REQUEST
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailResponse'
+components:
+  schemas:
+    SecurityTestRequest:
+      type: object
+      required:
+        - id
+        - service
+        - url
+      properties:
+        "id":
+          type: string
+        "service":
+          type: string
+        "url":
+          type: string
+    SecurityTestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          $ref: "#/components/schemas/ExecutionStatus"
+        executions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecurityTestExecution'
+    SecurityTestExecution:
+      type: object
+      properties:
+        path:
+          type: string
+        proxy:
+          type: string
+        url:
+          type: string
+        code:
+          type: integer
+        status:
+          $ref: "#/components/schemas/ExecutionStatus"
+        error:
+          type: string
+    ExecutionStatus:
+      type: string
+      enum:
+        - OK
+        - FAILED
+        - ERROR
+    ProblemDetailResponse:
+      type: object
+      properties:
+        errorCode:
+          type: string
+        detail:
+          type: string
+        params:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemDetailParam'
+        invalidParams:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemDetailInvalidParam'
+    ProblemDetailParam:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+    ProblemDetailInvalidParam:
+      type: object
+      properties:
+        name:
+          type: string
+        message:
+          type: string

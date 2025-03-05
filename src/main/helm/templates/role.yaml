@@ -1,0 +1,38 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+ name: {{ .Release.Name }}-{{ .Values.app.name }}-role
+rules:
+ - apiGroups:
+    - "onecx.tkit.org"
+   resources:
+    - "datas"
+    - "datas/status"
+    - "datas/finalizers"
+    - "databases"
+    - "databases/status"
+    - "databases/finalizers"
+    - "keycloakclients"
+    - "keycloakclients/status"
+    - "keycloakclients/finalizers"
+    - "microfrontends"
+    - "microfrontends/status"
+    - "microfrontends/finalizers"
+    - "microservices"
+    - "microservices/status"
+    - "microservices/finalizers"
+    - "permissions"
+    - "permissions/status"
+    - "permissions/finalizers"
+    - "products"
+    - "products/status"
+    - "products/finalizers"
+    - "slots"
+    - "slots/status"
+    - "slots/finalizers"
+   verbs:
+    - "get"
+    - "list"
+    - "watch"
+    - "patch"
+    - "update"

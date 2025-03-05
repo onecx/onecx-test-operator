@@ -1,0 +1,5 @@
+
+:docker-registry: https://github.com/onecx/onecx-test-operator/pkgs/container/onecx-test-operator
+:helm-registry: https://github.com/onecx/onecx-test-operator/pkgs/container/charts%2Fonecx-test-operator
+:properties-file: src/main/resources/application.properties
+:helm-file: src/main/helm/values.yaml
