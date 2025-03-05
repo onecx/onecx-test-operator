@@ -132,7 +132,7 @@ public class TestRestController implements TestApiService {
 
             var response = request.send().await().atMost(Duration.ofSeconds(5));
             var code = response.statusCode();
-            var status = code == Response.Status.FORBIDDEN.getStatusCode() ? ExecutionStatusDTO.OK
+            var status = code == Response.Status.UNAUTHORIZED.getStatusCode() ? ExecutionStatusDTO.OK
                     : ExecutionStatusDTO.FAILED;
             log.error("Test {} {} {} {}", method, uri, code, status);
 
