@@ -89,7 +89,7 @@ class BaseRestControllerTest extends AbstractTest {
                                         .addParameter(new ParameterImpl().in(null).name("a"))
                                         .addParameter(new ParameterImpl().in(Parameter.In.QUERY).name("q"))))));
 
-        createResponse(path, apiPath, FORBIDDEN);
+        createResponse(path, apiPath, UNAUTHORIZED);
 
         var request = new SecurityTestRequestDTO()
                 .id(id)
