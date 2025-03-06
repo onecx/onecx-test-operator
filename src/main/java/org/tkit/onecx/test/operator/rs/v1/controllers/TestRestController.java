@@ -83,7 +83,6 @@ public class TestRestController implements TestApiService {
         var result = testMapper.response(dto);
 
         proxyPassLocations.forEach((proxyPath, path) -> {
-            ;
             try {
                 log.info("Path: {} proxy: {}", path, proxyPath);
                 var openapi = quarkusService.getOpenApi(path);
