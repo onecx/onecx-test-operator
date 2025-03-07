@@ -1,7 +1,6 @@
 package org.tkit.onecx.test.domain.services;
 
 import java.io.ByteArrayOutputStream;
-import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -29,6 +28,7 @@ public class K8sExecService {
         this.client = client;
     }
 
+    @SuppressWarnings("java:S2142")
     public String execCommandOnPod(String podName, String... cmd) {
         try {
             Pod pod = client.pods().withName(podName).get();
@@ -38,10 +38,10 @@ public class K8sExecService {
             }
 
             log.info("Running command: [{}] on pod [{}] in namespace [{}]",
-                    Arrays.toString(cmd), pod.getMetadata().getName(), pod.getMetadata().getNamespace());
+                    cmd, pod.getMetadata().getName(), pod.getMetadata().getNamespace());
 
             CompletableFuture<String> data = new CompletableFuture<>();
-            try (ExecWatch _e = execCmd(pod, data, cmd)) {
+            try (ExecWatch ew = execCmd(pod, data, cmd)) {
                 return data.get(10, TimeUnit.SECONDS);
             }
         } catch (Exception ex) {

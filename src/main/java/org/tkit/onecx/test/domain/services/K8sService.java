@@ -6,16 +6,11 @@ import java.util.Map;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.client.KubernetesClient;
 
 @ApplicationScoped
 public class K8sService {
-
-    private static final Logger log = LoggerFactory.getLogger(K8sService.class);
 
     @Inject
     KubernetesClient client;
@@ -23,7 +18,7 @@ public class K8sService {
     public Map<String, String> findServiceSelector(String name) {
         var service = client.services().withName(name).get();
         if (service == null) {
-            return null;
+            return Map.of();
         }
         return service.getSpec().getSelector();
     }

@@ -40,6 +40,8 @@ import io.smallrye.openapi.runtime.io.OpenApiSerializer;
 @QuarkusTestResource(MockServerTestResource.class)
 public abstract class AbstractTest {
 
+    public static final String[] CMD_CONFIG = { "nginx", "-T" };
+
     private static final List<String> MOCK_IDS = new ArrayList<>();
 
     private static final Logger log = LoggerFactory.getLogger(AbstractTest.class);
@@ -125,7 +127,7 @@ public abstract class AbstractTest {
         return tmp;
     }
 
-    protected String createNginxConfigNoLocation(String path) {
+    protected String createNginxConfigNoLocation() {
         return """
                 # configuration file /etc/nginx/conf.d/locations/locations.conf:
 

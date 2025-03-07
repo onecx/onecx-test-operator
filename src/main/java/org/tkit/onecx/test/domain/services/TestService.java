@@ -28,7 +28,7 @@ public class TestService {
 
     private static final Logger log = LoggerFactory.getLogger(TestService.class);
 
-    public static final String[] CMD_CONFIG = { "nginx", "-T" };
+    protected static final String[] CMD_CONFIG = { "nginx", "-T" };
 
     @Inject
     K8sService k8sService;
@@ -48,7 +48,7 @@ public class TestService {
     public TestResponse execute(TestRequest request) throws SecurityException {
 
         var selector = k8sService.findServiceSelector(request.getService());
-        if (selector == null) {
+        if (selector.isEmpty()) {
             throw new ServiceException("no service found");
         }
 
@@ -100,9 +100,7 @@ public class TestService {
 
         openapi.getPaths().getPathItems().forEach((path, item) -> {
             var uri = domain + proxyPath + path;
-            item.getOperations().forEach((method, op) -> {
-                execute(result, uri, path, proxyPath, method, op);
-            });
+            item.getOperations().forEach((method, op) -> execute(result, uri, path, proxyPath, method, op));
         });
     }
 

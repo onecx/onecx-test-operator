@@ -6,7 +6,6 @@ import static jakarta.ws.rs.core.Response.Status.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.tkit.onecx.test.domain.services.TestService.CMD_CONFIG;
 
 import java.util.UUID;
 
@@ -263,7 +262,7 @@ class BaseRestControllerTest extends AbstractTest {
 
         createServiceAndPod(service, pod);
         Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfigNoLocation(path));
+                .thenReturn(createNginxConfigNoLocation());
 
         createOpenApiMock(createOpenApi().paths(new PathsImpl().addPathItem(apiPath,
                 new PathItemImpl().GET(new OperationImpl()))));
@@ -620,12 +619,12 @@ class BaseRestControllerTest extends AbstractTest {
             return exe;
         });
 
-        var k8sExecService = createService(tee);
+        var k8sExecService2 = createService(tee);
 
-        assertThat(k8sExecService.execCommandOnPod("does-not-exists", "nginx", "-T"))
+        assertThat(k8sExecService2.execCommandOnPod("does-not-exists", "nginx", "-T"))
                 .isNull();
 
-        k8sExecService.execCommandOnPod("name", "nginx", "-T");
+        k8sExecService2.execCommandOnPod("name", "nginx", "-T");
 
     }
 
@@ -642,9 +641,9 @@ class BaseRestControllerTest extends AbstractTest {
             return exe;
         });
 
-        var k8sExecService = createService(tee);
+        var k8sExecService2 = createService(tee);
 
-        assertThatThrownBy(() -> k8sExecService.execCommandOnPod("name", "nginx", "-T"))
+        assertThatThrownBy(() -> k8sExecService2.execCommandOnPod("name", "nginx", "-T"))
                 .isNotNull();
 
     }

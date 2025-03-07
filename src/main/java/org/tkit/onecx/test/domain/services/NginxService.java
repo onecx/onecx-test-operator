@@ -6,13 +6,8 @@ import java.util.regex.Pattern;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 @ApplicationScoped
 public class NginxService {
-
-    private static final Logger log = LoggerFactory.getLogger(NginxService.class);
 
     static final Pattern PATTERN_LOCATION = Pattern.compile("location\\s+.*?\\{([^}]*(proxy_pass[^}]*)[^}]*)\\}");
     static final Pattern PATTERN_LOCATION_PATH = Pattern.compile("(?<=location\\s)(.*?)(?=\\s\\{)");
