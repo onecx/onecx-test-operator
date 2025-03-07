@@ -33,7 +33,7 @@ import io.smallrye.openapi.api.models.parameters.ParameterImpl;
 @QuarkusTest
 @WithKubernetesTestServer
 @TestHTTPEndpoint(UIController.class)
-public class UIRestControllerTest extends AbstractTest {
+class UIRestControllerTest extends AbstractTest {
 
     @InjectMock
     K8sExecService k8sExecService;
