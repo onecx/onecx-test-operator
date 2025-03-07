@@ -18,6 +18,10 @@
             <artifactId>quarkus-kubernetes-client</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-rest</artifactId>
         </dependency>
@@ -171,7 +175,7 @@
                 <artifactId>openapi-generator-maven-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>internal</id>
+                        <id>external</id>
                         <goals>
                             <goal>generate</goal>
                         </goals>
@@ -179,6 +183,17 @@
                             <inputSpec>target/tmp/openapi/onecx-test-operator-v1.yaml</inputSpec>
                             <apiPackage>gen.org.tkit.onecx.test.operator.rs.v1</apiPackage>
                             <modelPackage>gen.org.tkit.onecx.test.operator.rs.v1.model</modelPackage>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>ui</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <inputSpec>src/main/openapi/onecx-test-operator-ui.yaml</inputSpec>
+                            <apiPackage>gen.org.tkit.onecx.test.operator.ui</apiPackage>
+                            <modelPackage>gen.org.tkit.onecx.test.operator.ui.model</modelPackage>
                         </configuration>
                     </execution>
                 </executions>

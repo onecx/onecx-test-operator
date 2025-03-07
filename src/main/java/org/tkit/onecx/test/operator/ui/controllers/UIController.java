@@ -1,39 +1,38 @@
-package org.tkit.onecx.test.operator.rs.v1.controllers;
+package org.tkit.onecx.test.operator.ui.controllers;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.ws.rs.core.Response;
 
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import org.tkit.onecx.test.domain.models.ServiceException;
-import org.tkit.onecx.test.domain.services.*;
-import org.tkit.onecx.test.operator.rs.v1.mappers.ExceptionMapper;
-import org.tkit.onecx.test.operator.rs.v1.mappers.TestMapper;
+import org.tkit.onecx.test.domain.services.TestService;
+import org.tkit.onecx.test.operator.ui.mappers.UIExceptionMapper;
+import org.tkit.onecx.test.operator.ui.mappers.UIMapper;
 
-import gen.org.tkit.onecx.test.operator.rs.v1.TestApiService;
-import gen.org.tkit.onecx.test.operator.rs.v1.model.*;
+import gen.org.tkit.onecx.test.operator.ui.UiApiService;
+import gen.org.tkit.onecx.test.operator.ui.model.ProblemDetailResponseDTO;
+import gen.org.tkit.onecx.test.operator.ui.model.TestRequestDTO;
 
 @ApplicationScoped
-@Transactional(value = Transactional.TxType.NOT_SUPPORTED)
-public class TestRestController implements TestApiService {
+public class UIController implements UiApiService {
 
     @Inject
     TestService testService;
 
     @Inject
-    ExceptionMapper exceptionMapper;
+    UIMapper mapper;
 
     @Inject
-    TestMapper testMapper;
+    UIExceptionMapper exceptionMapper;
 
     @Override
-    public Response executeSecurityTest(SecurityTestRequestDTO dto) {
-        var req = testMapper.map(dto);
-        var response = testService.execute(req);
-        return Response.ok(testMapper.create(response)).build();
+    public Response executeTest(TestRequestDTO testRequestDTO) {
+        var req = mapper.map(testRequestDTO);
+        var data = testService.execute(req);
+        return Response.ok(mapper.create(data)).build();
     }
 
     @ServerExceptionMapper
@@ -45,4 +44,5 @@ public class TestRestController implements TestApiService {
     public RestResponse<ProblemDetailResponseDTO> serviceException(ServiceException ex) {
         return exceptionMapper.service(ex);
     }
+
 }

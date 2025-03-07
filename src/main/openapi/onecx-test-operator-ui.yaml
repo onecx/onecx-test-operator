@@ -1,0 +1,119 @@
+openapi: "3.0.2"
+info:
+  title: onecx-test-operator-ui
+  version: "1.0"
+servers:
+  - url: https://localhost:8080
+tags:
+  - name: ui
+    description: ui internal service
+paths:
+    /ui/test:
+      post:
+        tags:
+        - ui
+        summary: Execute security test
+        operationId: executeTest
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestRequest'
+        responses:
+          "200":
+            description: OK
+            content:
+              "application/json":
+                schema:
+                  $ref: "#/components/schemas/TestResponse"
+          "400":
+            description: Bad request
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ProblemDetailResponse'
+components:
+  schemas:
+    TestRequest:
+      type: object
+      required:
+        - id
+        - url
+        - service
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+        service:
+          type: string
+    TestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+        service:
+          type: string
+        status:
+          $ref: "#/components/schemas/ExecutionStatus"
+        executions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecurityTestExecution'
+    SecurityTestExecution:
+      type: object
+      properties:
+        path:
+          type: string
+        proxy:
+          type: string
+        url:
+          type: string
+        code:
+          type: integer
+        status:
+          $ref: "#/components/schemas/ExecutionStatus"
+        error:
+          type: string
+    ExecutionStatus:
+      type: string
+      enum:
+        - OK
+        - FAILED
+        - ERROR
+    ProblemDetailResponse:
+      type: object
+      properties:
+        errorCode:
+          type: string
+        detail:
+          type: string
+        params:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemDetailParam'
+        invalidParams:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemDetailInvalidParam'
+    ProblemDetailParam:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+    ProblemDetailInvalidParam:
+      type: object
+      properties:
+        name:
+          type: string
+        message:
+          type: string
+    OffsetDateTime:
+      format: date-time
+      type: string
+      example: 2022-03-10T12:15:50-04:00
