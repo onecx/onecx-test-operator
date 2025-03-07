@@ -6,7 +6,7 @@ import static jakarta.ws.rs.core.Response.Status.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.tkit.onecx.test.operator.rs.v1.controllers.TestRestController.CMD_CONFIG;
+import static org.tkit.onecx.test.domain.services.TestService.CMD_CONFIG;
 
 import java.util.UUID;
 
@@ -161,20 +161,38 @@ class BaseRestControllerTest extends AbstractTest {
     }
 
     @Test
+    void runNoServiceFoundTest() {
+        var service = "test011-service-ui";
+        var pod = "test011-ui";
+
+        createServiceAndPod(service, pod, false);
+
+        var request = new SecurityTestRequestDTO()
+                .id(UUID.randomUUID().toString())
+                .service("does-not-exists")
+                .url(MOCK_SERVER_ENDPOINT);
+
+        var dto = given().when()
+                .auth().oauth2(keycloakClient.getAccessToken(ADMIN))
+                .header(APM_HEADER_PARAM, ADMIN)
+                .body(request).contentType(APPLICATION_JSON)
+                .post()
+                .then()
+                .statusCode(BAD_REQUEST.getStatusCode())
+                .extract().as(ProblemDetailResponseDTO.class);
+
+        assertThat(dto).isNotNull();
+
+        assertThat(dto.getErrorCode()).isEqualTo(ExceptionMapper.ErrorCodes.SERVICE_ERROR.name());
+        assertThat(dto.getDetail()).isEqualTo("no service found");
+    }
+
+    @Test
     void runNoPodFoundTest() {
         var service = "test01-service-ui";
         var pod = "test01-ui";
-        var path = "/mfe/test/api";
-        var apiPath = "/test";
 
         createServiceAndPod(service, pod, false);
-        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfig(path));
-
-        createOpenApiMock(createOpenApi().paths(new PathsImpl().addPathItem(apiPath,
-                new PathItemImpl().GET(new OperationImpl()))));
-
-        createResponse(path, apiPath, FORBIDDEN);
 
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
@@ -459,7 +477,7 @@ class BaseRestControllerTest extends AbstractTest {
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(MOCK_SERVER_ENDPOINT + "/");
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getAccessToken(ADMIN))

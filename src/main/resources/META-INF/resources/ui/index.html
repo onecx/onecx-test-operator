@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Onecx Test Operator</title>
+        <link rel="stylesheet" href="/ui/spectre.min.css" />
+        <link rel="stylesheet" href="/ui/spectre-exp.min.css">
+    </head>
+    <body>
+
+        <!-- FORM -->
+        <div class="container">
+            <div class="columns">
+                <div class="column col-3"></div>
+                <div class="column col-6">
+                    <form id="run-test-form">
+                        <div class="form-group">
+                            <label class="form-label" for="id">Id</label>
+                            <input class="form-input" type="text" id="id" name="id">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="url">Url</label>
+                            <input class="form-input" type="text" id="url" name="url" placeholder="http://localhost:8080">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="service">Service</label>
+                            <input class="form-input" type="text" id="service" name="service" placeholder="k8s-service-name">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" ></label>
+                            <button  class="btn btn-primary" id="submit" type="submit">Run test</button >
+                        </div>
+                    </form>
+                    <progress id="progress" hidden class="progress" max="100"></progress>
+                </div>
+                <div class="column col-3"></div>
+            </div>
+
+        </div>
+
+
+
+        <!-- RESULT -->
+        <div class="container" style="padding-top: .8rem;">
+            <div class="columns">
+                <div class="column col-3"></div>
+                <div class="column col-6">
+                    <div class="empty">
+                        <p class="empty-title h5">Result</p>
+                        <p id="result-status" class="empty-title h5 label label-success label-rounded"></p>
+                        <p id="result-id" class="empty-subtitle"></p>
+                        <p id="result-error" class="empty-subtitle"></p>
+                    </div>
+                    <table id="result-table" class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>URL</th>
+                                <th>Path</th>
+                                <th>Proxy</th>
+                                <th>Code</th>
+                                <th>Status</th>
+                                <th>Error</th>
+                            </tr>
+                        </thead>
+                        <tbody id="result-table-body"></tbody>
+                    </table>
+                </div>
+                <div class="column col-3"></div>
+            </div>
+        </div>
+    </body>
+
+    <script src="/ui/app.js"></script>
+</html>
