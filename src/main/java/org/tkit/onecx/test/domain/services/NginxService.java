@@ -9,7 +9,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 @ApplicationScoped
 public class NginxService {
 
-    static final Pattern PATTERN_LOCATION = Pattern.compile("location\\s+.*?\\{([^}]*(proxy_pass[^}]*)[^}]*)\\}");
+    static final Pattern PATTERN_LOCATION = Pattern
+            .compile("location\\s+[^\\{]+\\{(?:[^{}]*\\{[^{}]*\\}[^{}]*|[^{}])*\\s*proxy_pass\\s+[^\\}]*\\;[^}]*\\}\n");
     static final Pattern PATTERN_LOCATION_PATH = Pattern.compile("(?<=location\\s)(.*?)(?=\\s\\{)");
     static final Pattern PATTERN_LOCATION_PROXY_PASS = Pattern.compile("(?<=proxy_pass\\s)([^;]+)");
 
