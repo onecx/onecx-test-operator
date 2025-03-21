@@ -10,9 +10,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 public class NginxService {
 
     static final Pattern PATTERN_LOCATION = Pattern
-            .compile("location\\s+[^\\{]+\\{(?:[^{}]*\\{[^{}]*\\}[^{}]*|[^{}])*\\s*proxy_pass\\s+[^\\}]*\\;[^}]*\\}\n");
+            .compile("location\\s+[^\\{]+\\{(?:[^{}]*\\{[^{}]*\\}[^{}]*|[^{}])*\\s*proxy_pass\\s+[^\\}]*\\;[^}]*\\}");
     static final Pattern PATTERN_LOCATION_PATH = Pattern.compile("(?<=location\\s)(.*?)(?=\\s\\{)");
-    static final Pattern PATTERN_LOCATION_PROXY_PASS = Pattern.compile("(?<=proxy_pass\\s)([^;]+)");
+    static final Pattern PATTERN_LOCATION_PROXY_PASS = Pattern.compile("(?<=proxy_pass\\s)(http[s]?:\\/\\/[^\\/\\s;]+\\/?)");
 
     public Map<String, String> getProxyPassLocation(String output) {
 
