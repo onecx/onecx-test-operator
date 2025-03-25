@@ -18,8 +18,8 @@ import org.tkit.onecx.test.operator.rs.v1.mappers.ExceptionMapper;
 
 import gen.org.tkit.onecx.test.operator.rs.v1.model.ExecutionStatusDTO;
 import gen.org.tkit.onecx.test.operator.rs.v1.model.ProblemDetailResponseDTO;
-import gen.org.tkit.onecx.test.operator.rs.v1.model.SecurityTestRequestDTO;
 import gen.org.tkit.onecx.test.operator.rs.v1.model.SecurityTestResponseDTO;
+import gen.org.tkit.onecx.test.operator.ui.model.TestRequestDTO;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
@@ -67,7 +67,7 @@ class UIRestControllerTest extends AbstractTest {
 
         createServiceAndPod(service, pod, false);
 
-        var request = new SecurityTestRequestDTO()
+        var request = new TestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service("does-not-exists")
                 .url(MOCK_SERVER_ENDPOINT);
@@ -111,10 +111,67 @@ class UIRestControllerTest extends AbstractTest {
         createResponse(path, "/test/" + id, FORBIDDEN);
         createResponse(path, "/failed", OK);
 
-        var request = new SecurityTestRequestDTO()
+        createMockQMetrics(path, BAD_REQUEST);
+        createMockQHealth(path, BAD_REQUEST);
+        createMockQSwaggerUI(path, OK);
+        createMockQOpenApi(path, NOT_FOUND);
+
+        var request = new TestRequestDTO()
                 .id(id)
                 .service(service)
+                .quarkus(true)
                 .url(MOCK_SERVER_ENDPOINT);
+
+        var dto = given().when()
+                .auth().oauth2(keycloakClient.getAccessToken(ADMIN))
+                .header(APM_HEADER_PARAM, ADMIN)
+                .body(request).contentType(APPLICATION_JSON)
+                .post()
+                .then()
+                .statusCode(OK.getStatusCode())
+                .extract().as(SecurityTestResponseDTO.class);
+
+        assertThat(dto).isNotNull();
+
+        assertThat(dto.getId()).isEqualTo(request.getId());
+        assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.FAILED);
+        assertThat(dto.getExecutions()).isNotNull();
+    }
+
+    @Test
+    void runWrongDomainTest() {
+        var id = UUID.randomUUID().toString();
+        var service = "ui-test-service-ui-31";
+        var pod = "ui-test-31";
+        var path = "/mfe/test-ui/api";
+        var apiPath = "/test-ui/{id}";
+
+        createServiceAndPod(service, pod);
+        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
+                .thenReturn(createNginxConfig(path));
+
+        createOpenApiMock(createOpenApi()
+                .paths(new PathsImpl()
+                        .addPathItem(apiPath, new PathItemImpl()
+                                .GET(new OperationImpl()
+                                        .addParameter(new ParameterImpl().in(Parameter.In.PATH).name("id"))
+                                        .addParameter(new ParameterImpl().name("a"))
+                                        .addParameter(new ParameterImpl().in(Parameter.In.QUERY).name("q"))))
+                        .addPathItem("/failed", new PathItemImpl().GET(new OperationImpl()))));
+
+        createResponse(path, "/test/" + id, FORBIDDEN);
+        createResponse(path, "/failed", OK);
+
+        createMockQMetrics(path, BAD_REQUEST);
+        createMockQHealth(path, BAD_REQUEST);
+        createMockQSwaggerUI(path, OK);
+        createMockQOpenApi(path, NOT_FOUND);
+
+        var request = new TestRequestDTO()
+                .id(id)
+                .service(service)
+                .quarkus(true)
+                .url(MOCK_SERVER_ENDPOINT + "1");
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getAccessToken(ADMIN))

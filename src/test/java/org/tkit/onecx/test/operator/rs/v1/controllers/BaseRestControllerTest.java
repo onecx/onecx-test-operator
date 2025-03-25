@@ -227,11 +227,10 @@ class BaseRestControllerTest extends AbstractTest {
         createOpenApiMock(createOpenApi().paths(new PathsImpl().addPathItem(apiPath,
                 new PathItemImpl().GET(new OperationImpl()))));
 
-        createResponse(path, apiPath, FORBIDDEN);
-
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service(service)
+                .quarkus(false)
                 .url(MOCK_SERVER_ENDPOINT);
 
         var dto = given().when()

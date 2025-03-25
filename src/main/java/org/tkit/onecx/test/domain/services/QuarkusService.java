@@ -32,14 +32,16 @@ public class QuarkusService {
 
     public String getOpenApiSchema(String url) {
         log.info("Get openapi schema from URL: {}", url);
-        var client = QuarkusRestClientBuilder
-                .newBuilder()
-                .baseUri(URI.create(url))
-                .build(QuarkusAdminClient.class);
-
+        var client = createClient(url);
         try (var response = client.getOpenApiYaml()) {
             return response.readEntity(String.class);
         }
     }
 
+    private QuarkusAdminClient createClient(String url) {
+        return QuarkusRestClientBuilder
+                .newBuilder()
+                .baseUri(URI.create(url))
+                .build(QuarkusAdminClient.class);
+    }
 }
