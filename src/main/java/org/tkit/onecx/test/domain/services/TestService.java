@@ -18,6 +18,7 @@ import org.tkit.onecx.test.domain.models.TestExecution;
 import org.tkit.onecx.test.domain.models.TestRequest;
 import org.tkit.onecx.test.domain.models.TestResponse;
 
+import io.vertx.core.http.HttpMethod;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.ext.web.client.WebClient;
@@ -76,8 +77,18 @@ public class TestService {
         result.setExecutions(new ArrayList<>());
 
         proxyPassLocations.forEach((proxyPath, path) -> {
+
+            if (request.isQuarkus()) {
+                testQuarkusQService("health", result, url, proxyPath, "/q/health");
+                testQuarkusQService("metrics", result, url, proxyPath, "/q/metrics");
+                testQuarkusQService("openapi", result, url, proxyPath, "/q/openapi");
+                testQuarkusQService("swagger-ui", result, url, proxyPath, "/q/swagger-ui");
+            } else {
+                log.warn("Test quarkus Q-Services is disabled!");
+            }
+
             try {
-                log.info("Path: {} proxy: {}", path, proxyPath);
+                log.info("OpenAPI path: {} proxy: {}", path, proxyPath);
                 var openapi = quarkusService.getOpenApi(path);
 
                 testOpenApi(result, url, proxyPath, openapi);
@@ -93,13 +104,36 @@ public class TestService {
         return result;
     }
 
+    private void testQuarkusQService(String name, TestResponse result, String domain, String proxyPath, String path) {
+        var uri = createUri(domain, proxyPath, path);
+        try {
+            log.info("{} path: {} proxy: {} uri: {}", name, path, proxyPath, uri);
+            var request = WebClient.create(vertx, new WebClientOptions().setVerifyHost(false).setTrustAll(true))
+                    .requestAbs(HttpMethod.GET, uri);
+
+            var response = request.send().await().atMost(Duration.ofSeconds(5));
+            var code = response.statusCode();
+
+            var status = code >= Response.Status.BAD_REQUEST.getStatusCode() ? TestExecution.Status.OK
+                    : TestExecution.Status.FAILED;
+
+            log.error("{}-test {} {} {}", name, uri, code, status);
+
+            result.getExecutions().add(createExecution(path, proxyPath, status, uri, code));
+
+        } catch (Exception ex) {
+            log.error("Error execute {} test for {} - {}, error: {}", name, path, proxyPath, ex.getMessage(), ex);
+            result.getExecutions().add(createExecution(path, proxyPath, TestExecution.Status.OK, uri, ex.getMessage()));
+        }
+    }
+
     private void testOpenApi(TestResponse result, String domain, String proxyPath, OpenAPI openapi) {
         if (openapi.getPaths() == null || openapi.getPaths().getPathItems() == null) {
             return;
         }
 
         openapi.getPaths().getPathItems().forEach((path, item) -> {
-            var uri = domain + proxyPath + path;
+            var uri = createUri(domain, proxyPath, path);
             item.getOperations().forEach((method, op) -> execute(result, uri, path, proxyPath, method, op));
         });
     }
@@ -152,11 +186,26 @@ public class TestService {
         return e;
     }
 
+    private TestExecution createExecution(String path, String proxyPath, TestExecution.Status status, String uri,
+            String error) {
+        var e = new TestExecution();
+        e.setPath(path);
+        e.setProxy(proxyPath);
+        e.setStatus(status);
+        e.setUrl(uri);
+        e.setError(error);
+        return e;
+    }
+
     private String url(TestRequest dto) {
         var tmp = dto.getUrl();
         if (tmp.endsWith("/")) {
             tmp = tmp.substring(0, tmp.length() - 1);
         }
         return tmp;
+    }
+
+    private String createUri(String domain, String proxyPath, String path) {
+        return domain + proxyPath + path;
     }
 }

@@ -156,6 +156,26 @@ public abstract class AbstractTest {
         return a;
     }
 
+    protected void createMockQMetrics(String path, Response.Status status) {
+        addExpectation(mockServerClient.when(request().withPath(path + "/q/metrics").withMethod(HttpMethod.GET))
+                .respond(httpRequest -> response().withStatusCode(status.getStatusCode())));
+    }
+
+    protected void createMockQHealth(String path, Response.Status status) {
+        addExpectation(mockServerClient.when(request().withPath(path + "/q/health").withMethod(HttpMethod.GET))
+                .respond(httpRequest -> response().withStatusCode(status.getStatusCode())));
+    }
+
+    protected void createMockQOpenApi(String path, Response.Status status) {
+        addExpectation(mockServerClient.when(request().withPath(path + "/q/openapi").withMethod(HttpMethod.GET))
+                .respond(httpRequest -> response().withStatusCode(status.getStatusCode())));
+    }
+
+    protected void createMockQSwaggerUI(String path, Response.Status status) {
+        addExpectation(mockServerClient.when(request().withPath(path + "/q/swagger-ui").withMethod(HttpMethod.GET))
+                .respond(httpRequest -> response().withStatusCode(status.getStatusCode())));
+    }
+
     protected void createOpenApiMock(OpenAPI openAPI) {
         try {
             createOpenApiMock(OpenApiSerializer.serialize(openAPI, Format.YAML));

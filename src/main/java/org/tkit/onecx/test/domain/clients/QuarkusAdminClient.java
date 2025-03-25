@@ -16,4 +16,12 @@ public interface QuarkusAdminClient {
     @GET
     @Path("metrics")
     Response getMetrics();
+
+    @GET
+    @Path("health")
+    Response getHealth();
+
+    @GET
+    @Path("swagger-ui")
+    Response getSwaggerUi();
 }
