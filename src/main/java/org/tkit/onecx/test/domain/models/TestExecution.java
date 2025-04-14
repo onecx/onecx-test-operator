@@ -2,9 +2,11 @@ package org.tkit.onecx.test.domain.models;
 
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 
 @Getter
 @Setter
+@ToString
 public class TestExecution {
 
     private String path;

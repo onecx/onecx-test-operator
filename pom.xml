@@ -84,7 +84,11 @@
         </dependency>
         <dependency>
             <groupId>org.tkit.onecx.quarkus</groupId>
-            <artifactId>onecx-permissions</artifactId>
+            <artifactId>onecx-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.tkit.onecx.quarkus</groupId>
+            <artifactId>onecx-core</artifactId>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
@@ -150,6 +154,13 @@
  <build>
         <plugins>
             <plugin>
+                <groupId>io.quarkus</groupId>
+                <artifactId>quarkus-config-doc-maven-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>com.googlecode.maven-download-plugin</groupId>
                 <artifactId>download-maven-plugin</artifactId>
                 <executions>
@@ -198,7 +209,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                   <additionalProperties>onecx-permissions=true</additionalProperties>
+                   <additionalProperties>onecx-scopes=true</additionalProperties>
                     <generatorName>jaxrs-spec</generatorName>
                     <apiNameSuffix>ApiService</apiNameSuffix>
                     <modelNameSuffix>DTO</modelNameSuffix>

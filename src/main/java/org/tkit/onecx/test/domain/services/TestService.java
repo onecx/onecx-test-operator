@@ -2,6 +2,7 @@ package org.tkit.onecx.test.domain.services;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.List;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -13,6 +14,7 @@ import org.eclipse.microprofile.openapi.models.PathItem;
 import org.eclipse.microprofile.openapi.models.parameters.Parameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tkit.onecx.test.domain.models.ProxyConfiguration;
 import org.tkit.onecx.test.domain.models.ServiceException;
 import org.tkit.onecx.test.domain.models.TestExecution;
 import org.tkit.onecx.test.domain.models.TestRequest;
@@ -64,9 +66,19 @@ public class TestService {
             throw new ServiceException("no nginx config found");
         }
         var proxyPassLocations = nginxService.getProxyPassLocation(nginxConfig);
+
         if (proxyPassLocations.isEmpty()) {
             throw new ServiceException("no proxy pass locations found");
         }
+
+        ProxyConfiguration quarkusProxyConfiguration = findQuarkusProxyConfiguration(proxyPassLocations);
+
+        if (quarkusProxyConfiguration == null) {
+            log.error("No Quarkus proxy configuration found");
+            throw new ServiceException("No Quarkus proxy configuration found");
+        }
+
+        log.info("Proxy pass locations found {}", quarkusProxyConfiguration);
 
         final var url = url(request);
 
@@ -76,38 +88,43 @@ public class TestService {
         result.setUrl(request.getUrl());
         result.setExecutions(new ArrayList<>());
 
-        proxyPassLocations.forEach((proxyPath, path) -> {
+        testQuarkusQService("health", result, url, quarkusProxyConfiguration, "/q/health");
+        testQuarkusQService("metrics", result, url, quarkusProxyConfiguration, "/q/metrics");
+        testQuarkusQService("openapi", result, url, quarkusProxyConfiguration, "/q/openapi");
+        testQuarkusQService("swagger-ui", result, url, quarkusProxyConfiguration, "/q/swagger-ui");
 
-            if (request.isQuarkus()) {
-                testQuarkusQService("health", result, url, proxyPath, "/q/health");
-                testQuarkusQService("metrics", result, url, proxyPath, "/q/metrics");
-                testQuarkusQService("openapi", result, url, proxyPath, "/q/openapi");
-                testQuarkusQService("swagger-ui", result, url, proxyPath, "/q/swagger-ui");
-            } else {
-                log.warn("Test quarkus Q-Services is disabled!");
-            }
+        try {
+            log.info("OpenAPI location path: {}, proxy path: {}", quarkusProxyConfiguration.getLocation(),
+                    quarkusProxyConfiguration.getProxyPass());
+            var openapi = quarkusService.getOpenApi(quarkusProxyConfiguration.getProxyPass());
 
-            try {
-                log.info("OpenAPI path: {} proxy: {}", path, proxyPath);
-                var openapi = quarkusService.getOpenApi(path);
-
-                testOpenApi(result, url, proxyPath, openapi);
-            } catch (Exception ex) {
-                log.error("Error execute test for {} - {}, error: {}", path, proxyPath, ex.getMessage(), ex);
-                result.getExecutions().add(createExecutionError(path, proxyPath, url, ex.getMessage()));
-            }
-        });
+            testOpenApi(result, url, quarkusProxyConfiguration, openapi);
+        } catch (Exception ex) {
+            log.error("Error execute test for {} - {}, error: {}", quarkusProxyConfiguration.getProxyPass(),
+                    quarkusProxyConfiguration.getLocation(), ex.getMessage(), ex);
+            result.getExecutions().add(createExecutionError(quarkusProxyConfiguration.getProxyPass(),
+                    quarkusProxyConfiguration.getLocation(), url, ex.getMessage()));
+        }
 
         var failed = result.getExecutions().stream().anyMatch(x -> x.getStatus() != TestExecution.Status.OK);
         result.setStatus(failed ? TestResponse.Status.FAILED : TestResponse.Status.OK);
 
+        log.info("Test quarkus result {}", result);
+
         return result;
     }
 
-    private void testQuarkusQService(String name, TestResponse result, String domain, String proxyPath, String path) {
-        var uri = createUri(domain, proxyPath, path);
+    private ProxyConfiguration findQuarkusProxyConfiguration(List<ProxyConfiguration> proxyPassLocations) {
+        return proxyPassLocations.stream()
+                .filter(pc -> quarkusService.testQuarkusEndpoint(pc.getProxyPass()) == 200)
+                .findAny()
+                .orElseGet(() -> null);
+    }
+
+    private void testQuarkusQService(String name, TestResponse result, String domain, ProxyConfiguration pc, String path) {
+        var uri = createUri(domain, pc, path);
         try {
-            log.info("{} path: {} proxy: {} uri: {}", name, path, proxyPath, uri);
+            log.info("{} path: {} proxy: {} uri: {}", name, path, pc, uri);
             var request = WebClient.create(vertx, new WebClientOptions().setVerifyHost(false).setTrustAll(true))
                     .requestAbs(HttpMethod.GET, uri);
 
@@ -117,24 +134,25 @@ public class TestService {
             var status = code >= Response.Status.BAD_REQUEST.getStatusCode() ? TestExecution.Status.OK
                     : TestExecution.Status.FAILED;
 
-            log.error("{}-test {} {} {}", name, uri, code, status);
+            log.info("{}-test {} {} {}", name, uri, code, status);
 
-            result.getExecutions().add(createExecution(path, proxyPath, status, uri, code));
+            result.getExecutions().add(createExecution(path, pc.getLocation(), status, uri, code));
 
         } catch (Exception ex) {
-            log.error("Error execute {} test for {} - {}, error: {}", name, path, proxyPath, ex.getMessage(), ex);
-            result.getExecutions().add(createExecution(path, proxyPath, TestExecution.Status.OK, uri, ex.getMessage()));
+            log.error("Error execute {} test for {} - {}, error: {}", name, path, pc.getLocation(), ex.getMessage(), ex);
+            result.getExecutions().add(createExecution(path, pc.getLocation(), TestExecution.Status.OK, uri, ex.getMessage()));
         }
     }
 
-    private void testOpenApi(TestResponse result, String domain, String proxyPath, OpenAPI openapi) {
+    private void testOpenApi(TestResponse result, String domain, ProxyConfiguration proxyConfiguration, OpenAPI openapi) {
         if (openapi.getPaths() == null || openapi.getPaths().getPathItems() == null) {
             return;
         }
 
         openapi.getPaths().getPathItems().forEach((path, item) -> {
-            var uri = createUri(domain, proxyPath, path);
-            item.getOperations().forEach((method, op) -> execute(result, uri, path, proxyPath, method, op));
+            var uri = createUri(domain, proxyConfiguration, path);
+            item.getOperations()
+                    .forEach((method, op) -> execute(result, uri, path, proxyConfiguration.getLocation(), method, op));
         });
     }
 
@@ -205,7 +223,31 @@ public class TestService {
         return tmp;
     }
 
-    private String createUri(String domain, String proxyPath, String path) {
-        return domain + proxyPath + path;
+    private String createUri(String domain, ProxyConfiguration pc, String path) {
+        String mergedPath = removePathPrefix(pc.getProxyPassFull(), path);
+
+        return domain + pc.getLocation() + mergedPath;
+    }
+
+    /**
+     * Find overlap of 1st string end and start of 2nd string.
+     *
+     * @return length of the overlap
+     */
+    private int findOverlapLength(String str1, String str2) {
+        for (int i = 0; i < str1.length(); i++) {
+            String substring = str1.substring(i);
+            if (str2.startsWith(substring)) {
+                return substring.length();
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Remove common path prefix from openapi path to avoid duplicate url path
+     */
+    private String removePathPrefix(String proxyPassFull, String openApiPath) {
+        return openApiPath.substring(findOverlapLength(proxyPassFull, openApiPath));
     }
 }
