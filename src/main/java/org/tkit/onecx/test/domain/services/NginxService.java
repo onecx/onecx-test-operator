@@ -9,8 +9,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 @ApplicationScoped
 public class NginxService {
 
+    //match proxy locations mapping to bff-app
     static final Pattern PATTERN_LOCATION = Pattern
-            .compile("location\\s+[^\\{]+\\{(?:[^{}]*\\{[^{}]*\\}[^{}]*|[^{}])*\\s*proxy_pass\\s+[^\\}]*\\;[^}]*\\}");
+            .compile("location\\s+[^}]*?proxy_pass\\s+http:\\/\\/[^;\\n]*bff-app[^;\\n]*");
     static final Pattern PATTERN_LOCATION_PATH = Pattern.compile("(?<=location\\s)(.*?)(?=\\s\\{)");
     static final Pattern PATTERN_LOCATION_PROXY_PASS = Pattern.compile("(?<=proxy_pass\\s)(https?:\\/\\/[^\\/\\s;]+\\/?)");
 

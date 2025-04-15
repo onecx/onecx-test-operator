@@ -65,7 +65,7 @@ public class TestService {
         }
         var proxyPassLocations = nginxService.getProxyPassLocation(nginxConfig);
         if (proxyPassLocations.isEmpty()) {
-            throw new ServiceException("no proxy pass locations found");
+            throw new ServiceException("no proxy pass locations for bff app found");
         }
 
         final var url = url(request);
@@ -76,25 +76,25 @@ public class TestService {
         result.setUrl(request.getUrl());
         result.setExecutions(new ArrayList<>());
 
-        proxyPassLocations.forEach((proxyPath, path) -> {
+        proxyPassLocations.forEach((location, proxyPass) -> {
 
             if (request.isQuarkus()) {
-                testQuarkusQService("health", result, url, proxyPath, "/q/health");
-                testQuarkusQService("metrics", result, url, proxyPath, "/q/metrics");
-                testQuarkusQService("openapi", result, url, proxyPath, "/q/openapi");
-                testQuarkusQService("swagger-ui", result, url, proxyPath, "/q/swagger-ui");
+                testQuarkusQService("health", result, url, location, "/q/health");
+                testQuarkusQService("metrics", result, url, location, "/q/metrics");
+                testQuarkusQService("openapi", result, url, location, "/q/openapi");
+                testQuarkusQService("swagger-ui", result, url, location, "/q/swagger-ui");
             } else {
                 log.warn("Test quarkus Q-Services is disabled!");
             }
 
             try {
-                log.info("OpenAPI path: {} proxy: {}", path, proxyPath);
-                var openapi = quarkusService.getOpenApi(path);
+                log.info("OpenAPI path: {} proxy: {}", proxyPass, location);
+                var openapi = quarkusService.getOpenApi(proxyPass);
 
-                testOpenApi(result, url, proxyPath, openapi);
+                testOpenApi(result, url, location, proxyPass, openapi);
             } catch (Exception ex) {
-                log.error("Error execute test for {} - {}, error: {}", path, proxyPath, ex.getMessage(), ex);
-                result.getExecutions().add(createExecutionError(path, proxyPath, url, ex.getMessage()));
+                log.error("Error execute test for {} - {}, error: {}", proxyPass, location, ex.getMessage(), ex);
+                result.getExecutions().add(createExecutionError(proxyPass, location, url, ex.getMessage()));
             }
         });
 
@@ -127,14 +127,14 @@ public class TestService {
         }
     }
 
-    private void testOpenApi(TestResponse result, String domain, String proxyPath, OpenAPI openapi) {
+    private void testOpenApi(TestResponse result, String domain, String location, String proxyPass, OpenAPI openapi) {
         if (openapi.getPaths() == null || openapi.getPaths().getPathItems() == null) {
             return;
         }
 
         openapi.getPaths().getPathItems().forEach((path, item) -> {
-            var uri = createUri(domain, proxyPath, path);
-            item.getOperations().forEach((method, op) -> execute(result, uri, path, proxyPath, method, op));
+            var uri = createUri(domain, location, proxyPass, path);
+            item.getOperations().forEach((method, op) -> execute(result, uri, path, location, method, op));
         });
     }
 
@@ -205,7 +205,12 @@ public class TestService {
         return tmp;
     }
 
-    private String createUri(String domain, String proxyPath, String path) {
-        return domain + proxyPath + path;
+    private String createUri(String domain, String location, String proxyPass, String path) {
+        //remove duplicate bff-rs from openapi if already exists in proxyPass
+        if (proxyPass.contains("bff-rs") && path.contains("bff-rs")) {
+            path = path.replaceFirst("[^}]*?bff-rs/", "");
+        }
+
+        return domain + location + path;
     }
 }
