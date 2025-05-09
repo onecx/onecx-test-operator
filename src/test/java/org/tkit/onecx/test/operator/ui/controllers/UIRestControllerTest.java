@@ -46,8 +46,8 @@ class UIRestControllerTest extends AbstractTest {
     void uiBadRequestTest() {
 
         var dto = given().when()
-                .auth().oauth2(keycloakClient.getAccessToken(ADMIN))
-                .header(APM_HEADER_PARAM, ADMIN)
+                .auth().oauth2(keycloakClient.getAccessToken(ALICE))
+
                 .contentType(APPLICATION_JSON)
                 .post("")
                 .then()
@@ -73,8 +73,8 @@ class UIRestControllerTest extends AbstractTest {
                 .url(MOCK_SERVER_ENDPOINT);
 
         var dto = given().when()
-                .auth().oauth2(keycloakClient.getAccessToken(ADMIN))
-                .header(APM_HEADER_PARAM, ADMIN)
+                .auth().oauth2(keycloakClient.getAccessToken(ALICE))
+
                 .body(request).contentType(APPLICATION_JSON)
                 .post()
                 .then()
@@ -111,6 +111,8 @@ class UIRestControllerTest extends AbstractTest {
         createResponse(path, "/test/" + id, FORBIDDEN);
         createResponse(path, "/failed", OK);
 
+        createQuarkusHealthMock();
+
         createMockQMetrics(path, BAD_REQUEST);
         createMockQHealth(path, BAD_REQUEST);
         createMockQSwaggerUI(path, OK);
@@ -123,8 +125,8 @@ class UIRestControllerTest extends AbstractTest {
                 .url(MOCK_SERVER_ENDPOINT);
 
         var dto = given().when()
-                .auth().oauth2(keycloakClient.getAccessToken(ADMIN))
-                .header(APM_HEADER_PARAM, ADMIN)
+                .auth().oauth2(keycloakClient.getAccessToken(ALICE))
+
                 .body(request).contentType(APPLICATION_JSON)
                 .post()
                 .then()
@@ -162,6 +164,8 @@ class UIRestControllerTest extends AbstractTest {
         createResponse(path, "/test/" + id, FORBIDDEN);
         createResponse(path, "/failed", OK);
 
+        createQuarkusHealthMock();
+
         createMockQMetrics(path, BAD_REQUEST);
         createMockQHealth(path, BAD_REQUEST);
         createMockQSwaggerUI(path, OK);
@@ -174,8 +178,8 @@ class UIRestControllerTest extends AbstractTest {
                 .url(MOCK_SERVER_ENDPOINT + "1");
 
         var dto = given().when()
-                .auth().oauth2(keycloakClient.getAccessToken(ADMIN))
-                .header(APM_HEADER_PARAM, ADMIN)
+                .auth().oauth2(keycloakClient.getAccessToken(ALICE))
+
                 .body(request).contentType(APPLICATION_JSON)
                 .post()
                 .then()
@@ -187,5 +191,9 @@ class UIRestControllerTest extends AbstractTest {
         assertThat(dto.getId()).isEqualTo(request.getId());
         assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.FAILED);
         assertThat(dto.getExecutions()).isNotNull();
+    }
+
+    private void createQuarkusHealthMock() {
+        createMockQHealth("", OK);
     }
 }

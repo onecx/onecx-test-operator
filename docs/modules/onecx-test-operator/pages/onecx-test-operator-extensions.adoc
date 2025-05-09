@@ -92,10 +92,10 @@ h| Version
 | https://github.com/quarkusio/quarkusio.github.io/blob/develop/_generated-doc/latest/config/quarkus-hibernate-validator.adoc[Link]
 | 3.15.3
 
-| onecx-permissions
+| onecx-core
 
-| https://onecx.github.io/docs/onecx-quarkus/current/onecx-quarkus/onecx-permissions.html[Link]
-| https://github.com/onecx/onecx-quarkus/blob/0.34.0/docs/modules/onecx-quarkus/pages/includes/onecx-permissions.adoc[Link]
+| https://onecx.github.io/docs/onecx-quarkus/current/onecx-quarkus/onecx-core.html[Link]
+| 
 | 0.34.0
 
 | quarkus-oidc
@@ -110,12 +110,6 @@ h| Version
 | https://github.com/1000kit/tkit-quarkus/blob/2.40.0/docs/modules/tkit-quarkus/pages/includes/tkit-quarkus-security.adoc[Link]
 | 2.40.0
 
-| onecx-core
-
-| https://onecx.github.io/docs/onecx-quarkus/current/onecx-quarkus/onecx-core.html[Link]
-| 
-| 0.34.0
-
 | quarkus-arc
 
 | https://quarkus.io/guides/cdi-reference[Link]
@@ -126,6 +120,35 @@ h| Version
 
 | https://quarkus.io/guides/container-image[Link]
 | https://github.com/quarkusio/quarkusio.github.io/blob/develop/_generated-doc/latest/config/quarkus-container-image-docker.adoc[Link]
+| 3.15.3
+
+
+| quarkus-kubernetes-client
+
+| 
+| 
+| 3.15.3
+
+| onecx-security
+
+| 
+| 
+| 0.34.0
+
+| quarkus-rest-client-oidc-filter
+
+| 
+| 
+| 3.15.3
+
+| tkit-quarkus-oidc-health
+
+| 
+| 
+| 2.40.0
+
+
+|===-doc/latest/config/quarkus-container-image-docker.adoc[Link]
 | 3.15.3
 
 

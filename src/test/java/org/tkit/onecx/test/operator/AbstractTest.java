@@ -1,5 +1,7 @@
 package org.tkit.onecx.test.operator;
 
+import static jakarta.ws.rs.core.Response.Status.OK;
+import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
@@ -23,7 +25,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-import io.fabric8.kubernetes.api.model.*;
+import io.fabric8.kubernetes.api.model.IntOrString;
+import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.quarkiverse.mockserver.test.InjectMockServerClient;
 import io.quarkiverse.mockserver.test.MockServerTestResource;
@@ -46,12 +50,10 @@ public abstract class AbstractTest {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractTest.class);
 
-    protected static final String ADMIN = "alice";
+    protected static final String ADMIN = "admin";
+    protected static final String ALICE = "alice";
 
     protected KeycloakTestClient keycloakClient = new KeycloakTestClient();
-
-    protected static final String APM_HEADER_PARAM = ConfigProvider.getConfig()
-            .getValue("%test.tkit.rs.context.token.header-param", String.class);
 
     protected static final String MOCK_SERVER_ENDPOINT = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
             String.class);
@@ -118,6 +120,30 @@ public abstract class AbstractTest {
                 # configuration file /etc/nginx/conf.d/locations/locations.conf:
                 location ${TEST_PATH} {
                     proxy_pass ${TEST_PROXY};
+                    proxy_set_header Host            $host;
+                    proxy_set_header X-Forwarded-For $remote_addr;
+                }
+                """;
+        tmp = tmp.replace("${TEST_PATH}", path);
+        tmp = tmp.replace("${TEST_PROXY}", MOCK_SERVER_ENDPOINT);
+        return tmp;
+    }
+
+    protected String createNginxConfigWithMultipleConfigs(String path) {
+        var tmp = """
+                location = /error/ {
+                alias    /usr/share/nginx/html/static/;
+                    try_files $uri $uri/ = 404;
+                }
+                # configuration of static files
+                location ${TEST_PATH}/webresources {
+                    proxy_pass http://web-resources-app/web-resources/;
+                    proxy_set_header Host            $host;
+                    proxy_set_header X-Forwarded-For $remote_addr;
+                }
+                # configuration file /etc/nginx/conf.d/locations/locations.conf:
+                location ${TEST_PATH} {
+                    proxy_pass ${TEST_PROXY}/cool-prefix-rs;
                     proxy_set_header Host            $host;
                     proxy_set_header X-Forwarded-For $remote_addr;
                 }
@@ -212,5 +238,15 @@ public abstract class AbstractTest {
             }
         });
         MOCK_IDS.clear();
+    }
+
+    protected void mockQuarkusEndpoints(String path) {
+        //mock quarkus health api
+        createMockQHealth("", OK);
+        //mock all quarkus apis via proxy as 401
+        createMockQMetrics(path, UNAUTHORIZED);
+        createMockQHealth(path, UNAUTHORIZED);
+        createMockQSwaggerUI(path, UNAUTHORIZED);
+        createMockQOpenApi(path, UNAUTHORIZED);
     }
 }

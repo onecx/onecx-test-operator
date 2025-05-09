@@ -20,6 +20,17 @@ public class QuarkusService {
 
     private static final Logger log = LoggerFactory.getLogger(QuarkusService.class);
 
+    public int testQuarkusEndpoint(String url) {
+        log.info("Testing Quarkus endpoint {}", url);
+        var client = createClient(url);
+        try (var response = client.getHealth()) {
+            return response.getStatus();
+        } catch (Exception e) {
+            log.error("Quarkus health check failed with url {}", url);
+            return 500;
+        }
+    }
+
     public OpenAPI getOpenApi(String url) {
         try {
             var data = getOpenApiSchema(url);

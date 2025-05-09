@@ -10,13 +10,6 @@ app:
         fieldRef:
           fieldPath: metadata.namespace
   operator:
-    # Permission
-    permission:
-      enabled: true
-      spec:
-        permissions:
-          test:
-            execute: permission to run test
     keycloak:
       client:
         enabled: true

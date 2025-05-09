@@ -12,6 +12,4 @@ public class TestRequest {
     private String url;
 
     private String service;
-
-    private boolean quarkus;
 }

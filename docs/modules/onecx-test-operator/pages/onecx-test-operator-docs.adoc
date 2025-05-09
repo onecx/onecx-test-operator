@@ -12,8 +12,6 @@ quarkus.http.auth.permission.health.paths=/q/*
 quarkus.http.auth.permission.health.policy=permit
 quarkus.http.auth.permission.default.paths=/*
 quarkus.http.auth.permission.default.policy=authenticated
-onecx.permissions.application-id=${quarkus.application.name}
-onecx.permissions.product-name=onecx-test-operator
 quarkus.kubernetes-client.trust-certs=true
 quarkus.kubernetes-client.namespace=${KUBERNETES_NAMESPACE:default}
 %prod.quarkus.oidc-client.client-id=${quarkus.application.name}
@@ -54,8 +52,15 @@ app:
         fieldRef:
           fieldPath: metadata.namespace
   operator:
-    # Permission
-    permission:
+    keycloak:
+      client:
+        enabled: true
+        spec:
+          kcConfig:
+            defaultClientScopes: [ ocx-pm:read ]
+----
+
+sion:
       enabled: true
       spec:
         permissions:
