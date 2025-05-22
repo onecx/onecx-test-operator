@@ -1,10 +1,10 @@
 package org.tkit.onecx.test.domain.services;
 
-import java.io.ByteArrayInputStream;
 import java.net.URI;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
+import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.openapi.models.OpenAPI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,8 +12,8 @@ import org.tkit.onecx.test.domain.clients.QuarkusAdminClient;
 import org.tkit.onecx.test.domain.models.ServiceException;
 
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
-import io.smallrye.openapi.runtime.io.Format;
-import io.smallrye.openapi.runtime.io.OpenApiParser;
+import io.smallrye.openapi.api.OpenApiConfig;
+import io.smallrye.openapi.runtime.io.*;
 
 @ApplicationScoped
 public class QuarkusService {
@@ -35,7 +35,7 @@ public class QuarkusService {
         try {
             var data = getOpenApiSchema(url);
             log.debug(data);
-            return OpenApiParser.parse(new ByteArrayInputStream(data.getBytes()), Format.YAML);
+            return parse(data);
         } catch (Exception ex) {
             throw new ServiceException(ex);
         }
@@ -54,5 +54,12 @@ public class QuarkusService {
                 .newBuilder()
                 .baseUri(URI.create(url))
                 .build(QuarkusAdminClient.class);
+    }
+
+    private static OpenAPI parse(String stream) {
+        var jsonio = JsonIO.newInstance(OpenApiConfig.fromConfig(ConfigProvider.getConfig()));
+        var context = IOContext.forJson(jsonio);
+        return new OpenAPIDefinitionIO<>(context).readValue(jsonio.fromString(stream, Format.YAML));
+
     }
 }

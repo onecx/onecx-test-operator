@@ -9,11 +9,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import io.smallrye.openapi.api.SmallRyeOpenAPI;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.HttpMethod;
 import jakarta.ws.rs.core.Response;
 
-import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.openapi.models.OpenAPI;
 import org.mockserver.client.MockServerClient;
 import org.mockserver.mock.Expectation;
@@ -36,10 +36,6 @@ import io.quarkus.test.keycloak.client.KeycloakTestClient;
 import io.restassured.RestAssured;
 import io.restassured.config.ObjectMapperConfig;
 import io.restassured.config.RestAssuredConfig;
-import io.smallrye.openapi.api.models.OpenAPIImpl;
-import io.smallrye.openapi.api.models.servers.ServerImpl;
-import io.smallrye.openapi.runtime.io.Format;
-import io.smallrye.openapi.runtime.io.OpenApiSerializer;
 
 @QuarkusTestResource(MockServerTestResource.class)
 public abstract class AbstractTest {
@@ -54,9 +50,6 @@ public abstract class AbstractTest {
     protected static final String ALICE = "alice";
 
     protected KeycloakTestClient keycloakClient = new KeycloakTestClient();
-
-    protected static final String MOCK_SERVER_ENDPOINT = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
-            String.class);
 
     static {
         RestAssured.config = RestAssuredConfig.config().objectMapperConfig(
@@ -111,7 +104,7 @@ public abstract class AbstractTest {
         log.info("Created pod with name {}", p.getMetadata().getName());
     }
 
-    protected String createNginxConfig(String path) {
+    protected String createNginxConfig(String path, String mockUrl) {
         var tmp = """
                 location = /error/ {
                 alias    /usr/share/nginx/html/static/;
@@ -125,11 +118,11 @@ public abstract class AbstractTest {
                 }
                 """;
         tmp = tmp.replace("${TEST_PATH}", path);
-        tmp = tmp.replace("${TEST_PROXY}", MOCK_SERVER_ENDPOINT);
+        tmp = tmp.replace("${TEST_PROXY}", mockUrl);
         return tmp;
     }
 
-    protected String createNginxConfigWithMultipleConfigs(String path) {
+    protected String createNginxConfigWithMultipleConfigs(String path, String mockUrl) {
         var tmp = """
                 location = /error/ {
                 alias    /usr/share/nginx/html/static/;
@@ -149,7 +142,7 @@ public abstract class AbstractTest {
                 }
                 """;
         tmp = tmp.replace("${TEST_PATH}", path);
-        tmp = tmp.replace("${TEST_PROXY}", MOCK_SERVER_ENDPOINT);
+        tmp = tmp.replace("${TEST_PROXY}", mockUrl);
         return tmp;
     }
 
@@ -176,12 +169,6 @@ public abstract class AbstractTest {
         return tmp;
     }
 
-    protected OpenAPIImpl createOpenApi() {
-        var a = new OpenAPIImpl();
-        a.addServer(new ServerImpl().url("http://localhost:8080"));
-        return a;
-    }
-
     protected void createMockQMetrics(String path, Response.Status status) {
         addExpectation(mockServerClient.when(request().withPath(path + "/q/metrics").withMethod(HttpMethod.GET))
                 .respond(httpRequest -> response().withStatusCode(status.getStatusCode())));
@@ -204,7 +191,7 @@ public abstract class AbstractTest {
 
     protected void createOpenApiMock(OpenAPI openAPI) {
         try {
-            createOpenApiMock(OpenApiSerializer.serialize(openAPI, Format.YAML));
+            createOpenApiMock(SmallRyeOpenAPI.builder().withInitialModel(openAPI).build().toYAML());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

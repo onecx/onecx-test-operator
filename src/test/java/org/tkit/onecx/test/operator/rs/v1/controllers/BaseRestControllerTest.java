@@ -5,10 +5,12 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static jakarta.ws.rs.core.Response.Status.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.eclipse.microprofile.openapi.OASFactory.*;
 import static org.mockito.ArgumentMatchers.any;
 
 import java.util.UUID;
 
+import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.openapi.models.parameters.Parameter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,10 +33,6 @@ import io.quarkus.test.InjectMock;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.kubernetes.client.WithKubernetesTestServer;
-import io.smallrye.openapi.api.models.OperationImpl;
-import io.smallrye.openapi.api.models.PathItemImpl;
-import io.smallrye.openapi.api.models.PathsImpl;
-import io.smallrye.openapi.api.models.parameters.ParameterImpl;
 
 @QuarkusTest
 @WithKubernetesTestServer
@@ -77,25 +75,29 @@ class BaseRestControllerTest extends AbstractTest {
         var path = "/mfe/test/api";
         var apiPath = "/test";
 
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
         createServiceAndPod(service, pod);
         mockQuarkusEndpoints(path);
         Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfig(path));
+                .thenReturn(createNginxConfig(path, mockUrl));
 
-        createOpenApiMock(createOpenApi()
-                .paths(new PathsImpl()
-                        .addPathItem(apiPath, new PathItemImpl()
-                                .GET(new OperationImpl()
-                                        .addParameter(new ParameterImpl().in(Parameter.In.PATH).name("id"))
-                                        .addParameter(new ParameterImpl().in(null).name("a"))
-                                        .addParameter(new ParameterImpl().in(Parameter.In.QUERY).name("q"))))));
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths()
+                        .addPathItem(apiPath,
+                                createPathItem()
+                                        .GET(createOperation()
+                                                .addParameter(createParameter().in(Parameter.In.PATH).name("id"))
+                                                .addParameter(createParameter().in(null).name("a"))
+                                                .addParameter(createParameter().in(Parameter.In.QUERY).name("q"))))));
 
         createResponse(path, apiPath, UNAUTHORIZED);
 
         var request = new SecurityTestRequestDTO()
                 .id(id)
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -124,26 +126,30 @@ class BaseRestControllerTest extends AbstractTest {
         var apiPathPrefix = "/cool-prefix-rs";
         var apiPath = "/test";
 
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
         createServiceAndPod(service, pod);
         mockQuarkusEndpoints(path);
 
         Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfigWithMultipleConfigs(path));
+                .thenReturn(createNginxConfigWithMultipleConfigs(path, mockUrl));
 
-        createOpenApiMock(createOpenApi()
-                .paths(new PathsImpl()
-                        .addPathItem(apiPathPrefix + apiPath, new PathItemImpl()
-                                .GET(new OperationImpl()
-                                        .addParameter(new ParameterImpl().in(Parameter.In.PATH).name("id"))
-                                        .addParameter(new ParameterImpl().in(null).name("a"))
-                                        .addParameter(new ParameterImpl().in(Parameter.In.QUERY).name("q"))))));
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths()
+                        .addPathItem(apiPath,
+                                createPathItem()
+                                        .GET(createOperation()
+                                                .addParameter(createParameter().in(Parameter.In.PATH).name("id"))
+                                                .addParameter(createParameter().in(null).name("a"))
+                                                .addParameter(createParameter().in(Parameter.In.QUERY).name("q"))))));
 
         createResponse(path, apiPath, UNAUTHORIZED);
 
         var request = new SecurityTestRequestDTO()
                 .id(id)
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -173,24 +179,28 @@ class BaseRestControllerTest extends AbstractTest {
         var path = "/mfe/test/api";
         var apiPath = "/test";
 
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
         createServiceAndPod(service, pod);
         Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfig(path));
+                .thenReturn(createNginxConfig(path, mockUrl));
 
-        createOpenApiMock(createOpenApi()
-                .paths(new PathsImpl()
-                        .addPathItem(apiPath, new PathItemImpl()
-                                .GET(new OperationImpl()
-                                        .addParameter(new ParameterImpl().in(Parameter.In.PATH).name("id"))
-                                        .addParameter(new ParameterImpl().in(null).name("a"))
-                                        .addParameter(new ParameterImpl().in(Parameter.In.QUERY).name("q"))))));
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths()
+                        .addPathItem(apiPath,
+                                createPathItem()
+                                        .GET(createOperation()
+                                                .addParameter(createParameter().in(Parameter.In.PATH).name("id"))
+                                                .addParameter(createParameter().in(null).name("a"))
+                                                .addParameter(createParameter().in(Parameter.In.QUERY).name("q"))))));
 
         createResponse(path, apiPath, UNAUTHORIZED);
 
         var request = new SecurityTestRequestDTO()
                 .id(id)
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -217,17 +227,21 @@ class BaseRestControllerTest extends AbstractTest {
         createServiceAndPod(service, pod);
         mockQuarkusEndpoints(path);
 
-        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfig(path));
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
 
-        createOpenApiMock(createOpenApi()
-                .paths(new PathsImpl()
-                        .addPathItem(apiPath, new PathItemImpl()
-                                .GET(new OperationImpl()
-                                        .addParameter(new ParameterImpl().in(Parameter.In.PATH).name("id"))
-                                        .addParameter(new ParameterImpl().name("a"))
-                                        .addParameter(new ParameterImpl().in(Parameter.In.QUERY).name("q"))))
-                        .addPathItem("/failed", new PathItemImpl().GET(new OperationImpl()))));
+        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
+                .thenReturn(createNginxConfig(path, mockUrl));
+
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths()
+                        .addPathItem(apiPath,
+                                createPathItem()
+                                        .GET(createOperation()
+                                                .addParameter(createParameter().in(Parameter.In.PATH).name("id"))
+                                                .addParameter(createParameter().in(null).name("a"))
+                                                .addParameter(createParameter().in(Parameter.In.QUERY).name("q"))))
+                        .addPathItem("/failed", createPathItem().GET(createOperation()))));
 
         createResponse(path, "/test/" + id, FORBIDDEN);
         createResponse(path, "/failed", OK);
@@ -235,7 +249,7 @@ class BaseRestControllerTest extends AbstractTest {
         var request = new SecurityTestRequestDTO()
                 .id(id)
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -257,12 +271,15 @@ class BaseRestControllerTest extends AbstractTest {
         var service = "test011-service-ui";
         var pod = "test011-ui";
 
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
         createServiceAndPod(service, pod, false);
 
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service("does-not-exists")
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -283,12 +300,15 @@ class BaseRestControllerTest extends AbstractTest {
         var service = "test01-service-ui";
         var pod = "test01-ui";
 
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
         createServiceAndPod(service, pod, false);
 
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -314,17 +334,23 @@ class BaseRestControllerTest extends AbstractTest {
         createServiceAndPod(service, pod);
         mockQuarkusEndpoints(path);
 
-        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfig(path));
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
 
-        createOpenApiMock(createOpenApi().paths(new PathsImpl().addPathItem(apiPath,
-                new PathItemImpl().GET(new OperationImpl()))));
+        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
+                .thenReturn(createNginxConfig(path, mockUrl));
+
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths()
+                        .addPathItem(apiPath,
+                                createPathItem()
+                                        .GET(createOperation()))));
 
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service(service)
                 .quarkus(false)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -356,15 +382,21 @@ class BaseRestControllerTest extends AbstractTest {
         Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
                 .thenReturn(createNginxConfigNoLocation());
 
-        createOpenApiMock(createOpenApi().paths(new PathsImpl().addPathItem(apiPath,
-                new PathItemImpl().GET(new OperationImpl()))));
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths()
+                        .addPathItem(apiPath,
+                                createPathItem()
+                                        .GET(createOperation()))));
 
         createResponse(path, apiPath, FORBIDDEN);
 
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -392,15 +424,21 @@ class BaseRestControllerTest extends AbstractTest {
         Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
                 .thenReturn(createNginxConfigNoProxyPass(path));
 
-        createOpenApiMock(createOpenApi().paths(new PathsImpl().addPathItem(apiPath,
-                new PathItemImpl().GET(new OperationImpl()))));
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths()
+                        .addPathItem(apiPath,
+                                createPathItem()
+                                        .GET(createOperation()))));
 
         createResponse(path, apiPath, FORBIDDEN);
 
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -421,6 +459,9 @@ class BaseRestControllerTest extends AbstractTest {
         var service = "test10-service-ui";
         var pod = "test10-ui";
 
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
         createServiceAndPod(service, pod);
         Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
                 .thenReturn("");
@@ -428,7 +469,7 @@ class BaseRestControllerTest extends AbstractTest {
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -449,6 +490,9 @@ class BaseRestControllerTest extends AbstractTest {
         var service = "test11-service-ui";
         var pod = "test11-ui";
 
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
         createServiceAndPod(service, pod);
         Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
                 .thenReturn(null);
@@ -456,7 +500,7 @@ class BaseRestControllerTest extends AbstractTest {
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -482,15 +526,18 @@ class BaseRestControllerTest extends AbstractTest {
         createServiceAndPod(service, pod);
         mockQuarkusEndpoints(path);
 
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
         Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfig(path));
+                .thenReturn(createNginxConfig(path, mockUrl));
 
         createResponse(path, apiPath, FORBIDDEN);
 
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -519,8 +566,11 @@ class BaseRestControllerTest extends AbstractTest {
         createServiceAndPod(service, pod);
         mockQuarkusEndpoints(path);
 
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
         Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfig(path));
+                .thenReturn(createNginxConfig(path, mockUrl));
 
         createOpenApiMock("""
                     openapi: 3.0.0
@@ -532,7 +582,7 @@ class BaseRestControllerTest extends AbstractTest {
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -560,17 +610,20 @@ class BaseRestControllerTest extends AbstractTest {
         createServiceAndPod(service, pod);
         mockQuarkusEndpoints(path);
 
-        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfig(path));
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
 
-        createOpenApiMock(createOpenApi());
+        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
+                .thenReturn(createNginxConfig(path, mockUrl));
+
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080")));
 
         createResponse(path, apiPath, FORBIDDEN);
 
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT + "/");
+                .url(mockUrl + "/");
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -598,17 +651,20 @@ class BaseRestControllerTest extends AbstractTest {
         createServiceAndPod(service, pod);
         mockQuarkusEndpoints(path);
 
-        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfig(path));
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
 
-        createOpenApiMock(createOpenApi().paths(new PathsImpl()));
+        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
+                .thenReturn(createNginxConfig(path, mockUrl));
+
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080")).paths(createPaths()));
 
         createResponse(path, apiPath, FORBIDDEN);
 
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
@@ -636,19 +692,22 @@ class BaseRestControllerTest extends AbstractTest {
 
         createServiceAndPod(service, pod);
 
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
         mockQuarkusEndpoints(path);
         Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfig(path));
+                .thenReturn(createNginxConfig(path, mockUrl));
 
-        createOpenApiMock(createOpenApi().paths(new PathsImpl().addPathItem(apiPath,
-                new PathItemImpl())));
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths().addPathItem(apiPath, createPathItem())));
 
         createResponse(path, apiPath, FORBIDDEN);
 
         var request = new SecurityTestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service(service)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))

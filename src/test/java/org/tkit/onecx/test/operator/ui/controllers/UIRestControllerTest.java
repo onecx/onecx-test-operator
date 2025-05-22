@@ -5,9 +5,12 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static jakarta.ws.rs.core.Response.Status.*;
 import static jakarta.ws.rs.core.Response.Status.OK;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.eclipse.microprofile.openapi.OASFactory.*;
+import static org.eclipse.microprofile.openapi.OASFactory.createOperation;
 
 import java.util.UUID;
 
+import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.openapi.models.parameters.Parameter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,10 +27,6 @@ import io.quarkus.test.InjectMock;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.kubernetes.client.WithKubernetesTestServer;
-import io.smallrye.openapi.api.models.OperationImpl;
-import io.smallrye.openapi.api.models.PathItemImpl;
-import io.smallrye.openapi.api.models.PathsImpl;
-import io.smallrye.openapi.api.models.parameters.ParameterImpl;
 
 @QuarkusTest
 @WithKubernetesTestServer
@@ -67,10 +66,13 @@ class UIRestControllerTest extends AbstractTest {
 
         createServiceAndPod(service, pod, false);
 
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
         var request = new TestRequestDTO()
                 .id(UUID.randomUUID().toString())
                 .service("does-not-exists")
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getAccessToken(ALICE))
@@ -95,18 +97,22 @@ class UIRestControllerTest extends AbstractTest {
         var path = "/mfe/test-ui/api";
         var apiPath = "/test-ui/{id}";
 
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
         createServiceAndPod(service, pod);
         Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfig(path));
+                .thenReturn(createNginxConfig(path, mockUrl));
 
-        createOpenApiMock(createOpenApi()
-                .paths(new PathsImpl()
-                        .addPathItem(apiPath, new PathItemImpl()
-                                .GET(new OperationImpl()
-                                        .addParameter(new ParameterImpl().in(Parameter.In.PATH).name("id"))
-                                        .addParameter(new ParameterImpl().name("a"))
-                                        .addParameter(new ParameterImpl().in(Parameter.In.QUERY).name("q"))))
-                        .addPathItem("/failed", new PathItemImpl().GET(new OperationImpl()))));
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths()
+                        .addPathItem(apiPath,
+                                createPathItem()
+                                        .GET(createOperation()
+                                                .addParameter(createParameter().in(Parameter.In.PATH).name("id"))
+                                                .addParameter(createParameter().in(null).name("a"))
+                                                .addParameter(createParameter().in(Parameter.In.QUERY).name("q"))))
+                        .addPathItem("/failed", createPathItem().GET(createOperation()))));
 
         createResponse(path, "/test/" + id, FORBIDDEN);
         createResponse(path, "/failed", OK);
@@ -122,7 +128,7 @@ class UIRestControllerTest extends AbstractTest {
                 .id(id)
                 .service(service)
                 .quarkus(true)
-                .url(MOCK_SERVER_ENDPOINT);
+                .url(mockUrl);
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getAccessToken(ALICE))
@@ -148,18 +154,22 @@ class UIRestControllerTest extends AbstractTest {
         var path = "/mfe/test-ui/api";
         var apiPath = "/test-ui/{id}";
 
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
         createServiceAndPod(service, pod);
         Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
-                .thenReturn(createNginxConfig(path));
+                .thenReturn(createNginxConfig(path, mockUrl));
 
-        createOpenApiMock(createOpenApi()
-                .paths(new PathsImpl()
-                        .addPathItem(apiPath, new PathItemImpl()
-                                .GET(new OperationImpl()
-                                        .addParameter(new ParameterImpl().in(Parameter.In.PATH).name("id"))
-                                        .addParameter(new ParameterImpl().name("a"))
-                                        .addParameter(new ParameterImpl().in(Parameter.In.QUERY).name("q"))))
-                        .addPathItem("/failed", new PathItemImpl().GET(new OperationImpl()))));
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths()
+                        .addPathItem(apiPath,
+                                createPathItem()
+                                        .GET(createOperation()
+                                                .addParameter(createParameter().in(Parameter.In.PATH).name("id"))
+                                                .addParameter(createParameter().in(null).name("a"))
+                                                .addParameter(createParameter().in(Parameter.In.QUERY).name("q"))))
+                        .addPathItem("/failed", createPathItem().GET(createOperation()))));
 
         createResponse(path, "/test/" + id, FORBIDDEN);
         createResponse(path, "/failed", OK);
@@ -175,7 +185,7 @@ class UIRestControllerTest extends AbstractTest {
                 .id(id)
                 .service(service)
                 .quarkus(true)
-                .url(MOCK_SERVER_ENDPOINT + "1");
+                .url(mockUrl + "1");
 
         var dto = given().when()
                 .auth().oauth2(keycloakClient.getAccessToken(ALICE))
