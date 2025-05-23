@@ -11,7 +11,7 @@ import org.tkit.onecx.test.domain.models.ProxyConfiguration;
 @ApplicationScoped
 public class NginxService {
 
-    @SuppressWarnings({"java:S5998", "java:S5843"})
+    @SuppressWarnings({ "java:S5998", "java:S5843" })
     static final Pattern PATTERN_LOCATION = Pattern
             .compile("location\\s+[^\\{]+\\{(?:[^{}]*\\{[^{}]*\\}[^{}]*|[^{}])*\\s*proxy_pass\\s+[^\\}]*\\;[^}]*\\}");
     static final Pattern PATTERN_LOCATION_PATH = Pattern.compile("(?<=location\\s)(.*?)(?=\\s\\{)");

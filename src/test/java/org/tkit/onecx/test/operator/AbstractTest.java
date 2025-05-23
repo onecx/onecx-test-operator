@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import io.smallrye.openapi.api.SmallRyeOpenAPI;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.HttpMethod;
 import jakarta.ws.rs.core.Response;
@@ -36,6 +35,7 @@ import io.quarkus.test.keycloak.client.KeycloakTestClient;
 import io.restassured.RestAssured;
 import io.restassured.config.ObjectMapperConfig;
 import io.restassured.config.RestAssuredConfig;
+import io.smallrye.openapi.api.SmallRyeOpenAPI;
 
 @QuarkusTestResource(MockServerTestResource.class)
 public abstract class AbstractTest {
