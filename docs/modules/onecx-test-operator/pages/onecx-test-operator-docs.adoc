@@ -14,7 +14,7 @@ quarkus.http.auth.permission.default.paths=/*
 quarkus.http.auth.permission.default.policy=authenticated
 quarkus.kubernetes-client.trust-certs=true
 quarkus.kubernetes-client.namespace=${KUBERNETES_NAMESPACE:default}
-%prod.quarkus.oidc-client.client-id=${quarkus.application.name}
+%prod.quarkus.oidc-client.client-id=${ONECX_OIDC_CLIENT_CLIENT_ID:${quarkus.application.name}}
 quarkus.oidc.ui.auth-server-url=${quarkus.oidc.auth-server-url}
 quarkus.oidc.ui.client-id=${quarkus.oidc.client-id}
 quarkus.oidc.ui.credentials.secret=${quarkus.oidc.credentials.secret}
@@ -44,6 +44,8 @@ app:
   serviceAccount:
     enabled: true
   name: operator
+  template:
+    oidc_client_id: "ONECX_OIDC_CLIENT_CLIENT_ID"
   image:
     repository: "onecx/onecx-test-operator"
   envCustom:
@@ -60,12 +62,7 @@ app:
             defaultClientScopes: [ ocx-pm:read ]
 ----
 
-sion:
-      enabled: true
-      spec:
-        permissions:
-          test:
-            execute: permission to run test
+e: permission to run test
     keycloak:
       client:
         enabled: true
