@@ -3,6 +3,7 @@ package org.tkit.onecx.test.domain.services;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -125,7 +126,8 @@ public class TestService {
         var uri = createUri(domain, pc, path);
         try {
             log.info("{} path: {} proxy: {} uri: {}", name, path, pc, uri);
-            var request = WebClient.create(vertx, new WebClientOptions().setVerifyHost(false).setTrustAll(true))
+            var request = WebClient
+                    .create(vertx, new WebClientOptions().setVerifyHost(false).setFollowRedirects(false).setTrustAll(true))
                     .requestAbs(HttpMethod.GET, uri);
 
             var response = request.send().await().atMost(Duration.ofSeconds(5));
@@ -145,14 +147,31 @@ public class TestService {
     }
 
     private void testOpenApi(TestResponse result, String domain, ProxyConfiguration proxyConfiguration, OpenAPI openapi) {
-        if (openapi.getPaths() == null || openapi.getPaths().getPathItems() == null) {
+        if (openapi.getPaths() == null) {
+            log.warn("No paths found in OpenAPI definition");
             return;
         }
-
         openapi.getPaths().getPathItems().forEach((path, item) -> {
-            var uri = createUri(domain, proxyConfiguration, path);
-            item.getOperations()
-                    .forEach((method, op) -> execute(result, uri, path, proxyConfiguration.getLocation(), method, op));
+            boolean skip = false;
+            if (item.getExtensions() != null
+                    && item.getExtensions().containsKey("x-onecx")) {
+
+                Object xOnecx = item.getExtensions().get("x-onecx");
+                if (xOnecx instanceof Map) {
+                    // x-onecx is a Map
+                    Map<String, String> xOnecxExtensions = (Map<String, String>) xOnecx;
+                    if (xOnecxExtensions.containsKey("security") && "none".equalsIgnoreCase(xOnecxExtensions.get("security"))) {
+                        log.warn("Ignore test for path: {}", path);
+                        skip = true;
+                    }
+                }
+            }
+            if (!skip) {
+                log.info("Test path: {}, {}", path, item);
+                var uri = createUri(domain, proxyConfiguration, path);
+                item.getOperations()
+                        .forEach((method, op) -> execute(result, uri, path, proxyConfiguration.getLocation(), method, op));
+            }
         });
     }
 

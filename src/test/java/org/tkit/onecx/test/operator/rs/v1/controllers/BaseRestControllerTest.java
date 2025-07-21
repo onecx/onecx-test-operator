@@ -2,12 +2,21 @@ package org.tkit.onecx.test.operator.rs.v1.controllers;
 
 import static io.restassured.RestAssured.given;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
-import static jakarta.ws.rs.core.Response.Status.*;
+import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
+import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
+import static jakarta.ws.rs.core.Response.Status.OK;
+import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.eclipse.microprofile.openapi.OASFactory.*;
+import static org.eclipse.microprofile.openapi.OASFactory.createOpenAPI;
+import static org.eclipse.microprofile.openapi.OASFactory.createOperation;
+import static org.eclipse.microprofile.openapi.OASFactory.createParameter;
+import static org.eclipse.microprofile.openapi.OASFactory.createPathItem;
+import static org.eclipse.microprofile.openapi.OASFactory.createPaths;
+import static org.eclipse.microprofile.openapi.OASFactory.createServer;
 import static org.mockito.ArgumentMatchers.any;
 
+import java.util.Map;
 import java.util.UUID;
 
 import org.eclipse.microprofile.config.ConfigProvider;
@@ -28,7 +37,12 @@ import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.dsl.*;
+import io.fabric8.kubernetes.client.dsl.Execable;
+import io.fabric8.kubernetes.client.dsl.MixedOperation;
+import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
+import io.fabric8.kubernetes.client.dsl.PodResource;
+import io.fabric8.kubernetes.client.dsl.TtyExecErrorChannelable;
+import io.fabric8.kubernetes.client.dsl.TtyExecErrorable;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
@@ -124,7 +138,8 @@ class BaseRestControllerTest extends AbstractTest {
         var pod = "test12-ui";
         var path = "/mfe/test/api";
         var apiPathPrefix = "/cool-prefix-rs";
-        var apiPath = "/test";
+        var apiPath = "/cool-prefix-rs/test";
+        var mockserverApiPath = "/test";
 
         var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
                 String.class);
@@ -141,10 +156,23 @@ class BaseRestControllerTest extends AbstractTest {
                                 createPathItem()
                                         .GET(createOperation()
                                                 .addParameter(createParameter().in(Parameter.In.PATH).name("id"))
-                                                .addParameter(createParameter().in(null).name("a"))
-                                                .addParameter(createParameter().in(Parameter.In.QUERY).name("q"))))));
+                                                .addParameter(createParameter().in(null).name("a"))))
+                        .addPathItem(apiPath + "/public", createPathItem().GET(createOperation())
+                                .addExtension("x-onecx", Map.of("security", "none")))
+                        .addPathItem(apiPath + "/public-dummy1", createPathItem().GET(createOperation())
+                                .addExtension("x-onecx", "dummy1"))
+                        .addPathItem(apiPath + "/public-dummy2", createPathItem().GET(createOperation())
+                                .addExtension("x-onecx", Map.of("dummy", "dummy2")))
+                        .addPathItem(apiPath + "/public-dummy3", createPathItem().GET(createOperation())
+                                .addExtension("x-dummy-extension", "dummy3"))
+                        .addPathItem(apiPath + "/public-top-secret", createPathItem().GET(createOperation())
+                                .addExtension("x-onecx", Map.of("security", "top-secret")))));
 
-        createResponse(path, apiPath, UNAUTHORIZED);
+        createResponse(path, mockserverApiPath, UNAUTHORIZED);
+        createResponse(path, mockserverApiPath + "/public-top-secret", UNAUTHORIZED);
+        createResponse(path, mockserverApiPath + "/public-dummy3", UNAUTHORIZED);
+        createResponse(path, mockserverApiPath + "/public-dummy2", UNAUTHORIZED);
+        createResponse(path, mockserverApiPath + "/public-dummy1", UNAUTHORIZED);
 
         var request = new SecurityTestRequestDTO()
                 .id(id)
@@ -156,6 +184,7 @@ class BaseRestControllerTest extends AbstractTest {
                 .body(request).contentType(APPLICATION_JSON)
                 .post()
                 .then()
+
                 .statusCode(OK.getStatusCode())
                 .extract().as(SecurityTestResponseDTO.class);
 
@@ -164,7 +193,7 @@ class BaseRestControllerTest extends AbstractTest {
         assertThat(dto.getId()).isEqualTo(request.getId());
         assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.OK);
         assertThat(dto.getExecutions()).isNotNull();
-        assertThat(dto.getExecutions()).size().isEqualTo(5);
+        assertThat(dto.getExecutions()).size().isEqualTo(9);
         var e = dto.getExecutions().get(4);
         assertThat(e).isNotNull();
         assertThat(e.getStatus()).isEqualTo(ExecutionStatusDTO.OK);
@@ -724,6 +753,43 @@ class BaseRestControllerTest extends AbstractTest {
         assertThat(dto.getId()).isEqualTo(request.getId());
         assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.OK);
         assertThat(dto.getExecutions()).size().isEqualTo(4);
+    }
+
+    @Test
+    void runTestWithEmptyOpenapi() {
+        var id = UUID.randomUUID().toString();
+        var service = "test78-service-ui";
+        var pod = "test78-ui";
+        var path = "/mfe/test/api";
+
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
+        createServiceAndPod(service, pod);
+        mockQuarkusEndpoints(path);
+
+        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
+                .thenReturn(createNginxConfigWithMultipleConfigs(path, mockUrl));
+
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080")).paths(createPaths()));
+
+        var request = new SecurityTestRequestDTO()
+                .id(id)
+                .service(service)
+                .url(mockUrl);
+
+        var dto = given().when()
+                .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
+                .body(request).contentType(APPLICATION_JSON)
+                .post()
+                .then()
+
+                .statusCode(OK.getStatusCode())
+                .extract().as(SecurityTestResponseDTO.class);
+
+        assertThat(dto).isNotNull();
+        assertThat(dto.getExecutions()).size().isEqualTo(4);
+        assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.OK);
     }
 
     // Why?: Mock, KubernetesMockServer does not support Vertx WebSocket
