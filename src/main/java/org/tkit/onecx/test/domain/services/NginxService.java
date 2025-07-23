@@ -15,8 +15,8 @@ public class NginxService {
     static final Pattern PATTERN_LOCATION = Pattern
             .compile("location\\s+[^\\{]+\\{(?:[^{}]*\\{[^{}]*\\}[^{}]*|[^{}])*\\s*proxy_pass\\s+[^\\}]*\\;[^}]*\\}");
     static final Pattern PATTERN_LOCATION_PATH = Pattern.compile("(?<=location\\s)(.*?)(?=\\s\\{)");
-    static final Pattern PATTERN_LOCATION_PROXY_PASS = Pattern.compile("(?<=proxy_pass\\s)(https?:\\/\\/[^\\/\\s;]+\\/?)");
-    static final Pattern PATTERN_LOCATION_PROXY_PASS_FULL = Pattern.compile("(?<=proxy_pass\\s)(https?:\\/\\/+[^;]+)");
+    static final Pattern PATTERN_LOCATION_PROXY_PASS = Pattern.compile("(?<=proxy_pass\\s+)(https?:\\/\\/[^\\/\\s;]+\\/?)");
+    static final Pattern PATTERN_LOCATION_PROXY_PASS_FULL = Pattern.compile("(?<=proxy_pass\\s+)(https?:\\/\\/+[^;]+)");
 
     public List<ProxyConfiguration> getProxyPassLocation(String output) {
 

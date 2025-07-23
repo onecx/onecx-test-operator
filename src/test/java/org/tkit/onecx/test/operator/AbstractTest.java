@@ -136,7 +136,7 @@ public abstract class AbstractTest {
                 }
                 # configuration file /etc/nginx/conf.d/locations/locations.conf:
                 location ${TEST_PATH} {
-                    proxy_pass ${TEST_PROXY}/cool-prefix-rs;
+                    proxy_pass   ${TEST_PROXY}/cool-prefix-rs;
                     proxy_set_header Host            $host;
                     proxy_set_header X-Forwarded-For $remote_addr;
                 }
