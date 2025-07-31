@@ -157,16 +157,21 @@ class BaseRestControllerTest extends AbstractTest {
                                         .GET(createOperation()
                                                 .addParameter(createParameter().in(Parameter.In.PATH).name("id"))
                                                 .addParameter(createParameter().in(null).name("a"))))
-                        .addPathItem(apiPath + "/public", createPathItem().GET(createOperation())
-                                .addExtension("x-onecx", Map.of("security", "none")))
-                        .addPathItem(apiPath + "/public-dummy1", createPathItem().GET(createOperation())
-                                .addExtension("x-onecx", "dummy1"))
-                        .addPathItem(apiPath + "/public-dummy2", createPathItem().GET(createOperation())
-                                .addExtension("x-onecx", Map.of("dummy", "dummy2")))
-                        .addPathItem(apiPath + "/public-dummy3", createPathItem().GET(createOperation())
-                                .addExtension("x-dummy-extension", "dummy3"))
-                        .addPathItem(apiPath + "/public-top-secret", createPathItem().GET(createOperation())
-                                .addExtension("x-onecx", Map.of("security", "top-secret")))));
+                        .addPathItem(apiPath + "/public",
+                                createPathItem().GET(createOperation().operationId("publicApi").addExtension("x-onecx",
+                                        Map.of("security", "none"))))
+                        .addPathItem(apiPath + "/public-dummy1",
+                                createPathItem()
+                                        .GET(createOperation().operationId("dummyApi1").addExtension("x-onecx", "dummy1")))
+                        .addPathItem(apiPath + "/public-dummy2",
+                                createPathItem().GET(createOperation().operationId("dummyApi2").addExtension("x-onecx",
+                                        Map.of("dummy", "dummy2"))))
+                        .addPathItem(apiPath + "/public-dummy3",
+                                createPathItem().GET(
+                                        createOperation().operationId("dummyApi3").addExtension("x-dummy-extension", "dummy3")))
+                        .addPathItem(apiPath + "/public-top-secret", createPathItem()
+                                .GET(createOperation().operationId("topSecretApi").addExtension("x-onecx",
+                                        Map.of("security", "top-secret"))))));
 
         createResponse(path, mockserverApiPath, UNAUTHORIZED);
         createResponse(path, mockserverApiPath + "/public-top-secret", UNAUTHORIZED);

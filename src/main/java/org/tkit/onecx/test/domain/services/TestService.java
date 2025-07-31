@@ -152,27 +152,42 @@ public class TestService {
             return;
         }
         openapi.getPaths().getPathItems().forEach((path, item) -> {
-            boolean skip = false;
-            if (item.getExtensions() != null
-                    && item.getExtensions().containsKey("x-onecx")) {
 
-                Object xOnecx = item.getExtensions().get("x-onecx");
-                if (xOnecx instanceof Map) {
-                    // x-onecx is a Map
-                    Map<String, String> xOnecxExtensions = (Map<String, String>) xOnecx;
-                    if (xOnecxExtensions.containsKey("security") && "none".equalsIgnoreCase(xOnecxExtensions.get("security"))) {
-                        log.warn("Ignore test for path: {}", path);
-                        skip = true;
+            var uri = createUri(domain, proxyConfiguration, path);
+            item.getOperations()
+                    .forEach((method, op) -> {
+                        log.info("Found operation: {} for path {}", op.getOperationId(), path);
+
+                        if (hasXonecxNoSecurity(op, path)) {
+                            return;
+                        }
+
+                        log.info("Test operation {} for path {}", op.getOperationId(), path);
+                        execute(result, uri, path, proxyConfiguration.getLocation(), method, op);
+
                     }
+
+                    );
+        });
+    }
+
+    private boolean hasXonecxNoSecurity(Operation op, String path) {
+        if (op.getExtensions() != null
+                && op.getExtensions().containsKey("x-onecx")) {
+
+            Object xOnecx = op.getExtensions().get("x-onecx");
+            if (xOnecx instanceof Map) {
+                // x-onecx is a Map
+                Map<String, String> xOnecxExtensions = (Map<String, String>) xOnecx;
+                if (xOnecxExtensions.containsKey("security")
+                        && "none".equalsIgnoreCase(xOnecxExtensions.get("security"))) {
+                    log.info("Ignored operation: {} for path {} due to x-onecx security: none configuration",
+                            op.getOperationId(), path);
+                    return true;
                 }
             }
-            if (!skip) {
-                log.info("Test path: {}, {}", path, item);
-                var uri = createUri(domain, proxyConfiguration, path);
-                item.getOperations()
-                        .forEach((method, op) -> execute(result, uri, path, proxyConfiguration.getLocation(), method, op));
-            }
-        });
+        }
+        return false;
     }
 
     private void execute(TestResponse result, String uri, String path, String proxyPath, PathItem.HttpMethod method,
