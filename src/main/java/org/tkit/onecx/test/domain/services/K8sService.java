@@ -10,8 +10,10 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import lombok.extern.slf4j.Slf4j;
 
 @ApplicationScoped
+@Slf4j
 public class K8sService {
 
     @Inject
@@ -21,6 +23,7 @@ public class K8sService {
     String namespace;
 
     public Map<String, String> findServiceSelector(String name) {
+        log.info("Finding service selector for service: {} and namespace {}", name, namespace);
         var service = client.services().inNamespace(namespace).withName(name).get();
         if (service == null) {
             return Map.of();
