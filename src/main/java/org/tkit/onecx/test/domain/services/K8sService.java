@@ -19,12 +19,10 @@ public class K8sService {
     @Inject
     KubernetesClient client;
 
-    @ConfigProperty(name = "quarkus.kubernetes-client.namespace")
-    String namespace;
-
     public Map<String, String> findServiceSelector(String name) {
+        var namespace = client.getNamespace();
         log.info("Finding service selector for service: {} and namespace {}", name, namespace);
-        var service = client.services().inNamespace(namespace).withName(name).get();
+        var service = client.services().withName(name).get();
         if (service == null) {
             return Map.of();
         }
