@@ -6,6 +6,8 @@ import java.util.Map;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.client.KubernetesClient;
 
@@ -15,8 +17,11 @@ public class K8sService {
     @Inject
     KubernetesClient client;
 
+    @ConfigProperty(name = "quarkus.kubernetes-client.namespace")
+    String namespace;
+
     public Map<String, String> findServiceSelector(String name) {
-        var service = client.services().withName(name).get();
+        var service = client.services().inNamespace(namespace).withName(name).get();
         if (service == null) {
             return Map.of();
         }
