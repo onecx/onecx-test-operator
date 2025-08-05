@@ -203,6 +203,10 @@ class BaseRestControllerTest extends AbstractTest {
         assertThat(e).isNotNull();
         assertThat(e.getStatus()).isEqualTo(ExecutionStatusDTO.OK);
         assertThat(e.getUrl()).doesNotContain(apiPathPrefix);
+
+        assertThat(dto.getWhitelistedPaths()).isNotNull();
+        assertThat(dto.getWhitelistedPaths()).size().isEqualTo(1);
+        assertThat(dto.getWhitelistedPaths().get(0)).isEqualTo("/cool-prefix-rs/test/public");
     }
 
     @Test

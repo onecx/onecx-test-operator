@@ -14,5 +14,6 @@ public interface TestMapper {
     TestRequest map(SecurityTestRequestDTO dto);
 
     @Mapping(target = "removeExecutionsItem", ignore = true)
+    @Mapping(target = "removeWhitelistedPathsItem", ignore = true)
     SecurityTestResponseDTO create(TestResponse data);
 }

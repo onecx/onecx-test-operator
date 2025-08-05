@@ -88,6 +88,7 @@ public class TestService {
         result.setService(request.getService());
         result.setUrl(request.getUrl());
         result.setExecutions(new ArrayList<>());
+        result.setWhitelistedPaths(new ArrayList<>());
 
         testQuarkusQService("health", result, url, quarkusProxyConfiguration, "/q/health");
         testQuarkusQService("metrics", result, url, quarkusProxyConfiguration, "/q/metrics");
@@ -156,15 +157,8 @@ public class TestService {
             var uri = createUri(domain, proxyConfiguration, path);
             item.getOperations()
                     .forEach((method, op) -> {
-                        log.info("Found operation: {} for path {}", op.getOperationId(), path);
-
-                        if (hasXonecxNoSecurity(op, path)) {
-                            return;
-                        }
-
                         log.info("Test operation {} for path {}", op.getOperationId(), path);
                         execute(result, uri, path, proxyConfiguration.getLocation(), method, op);
-
                     }
 
                     );
@@ -192,9 +186,12 @@ public class TestService {
 
     private void execute(TestResponse result, String uri, String path, String proxyPath, PathItem.HttpMethod method,
             Operation op) {
-        log.info("Test {} {}", method, uri);
-
         try {
+            if (hasXonecxNoSecurity(op, path)) {
+                result.getWhitelistedPaths().add(path);
+                return;
+            }
+
             var request = WebClient.create(vertx, new WebClientOptions().setVerifyHost(false).setTrustAll(true))
                     .requestAbs(io.vertx.core.http.HttpMethod.valueOf(method.name()), UriTemplate.of(uri));
 
