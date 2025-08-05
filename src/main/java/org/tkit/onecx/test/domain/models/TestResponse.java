@@ -21,6 +21,8 @@ public class TestResponse {
 
     private List<TestExecution> executions;
 
+    private List<String> whitelistedPaths;
+
     public enum Status {
 
         OK,
