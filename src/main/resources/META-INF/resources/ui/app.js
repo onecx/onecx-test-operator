@@ -89,6 +89,14 @@ function showResult(result) {
         addColStatus(row, item.status);
         addCol(row, item.error);
     }
+
+    const whitelistTablebody = document.getElementById('whitelist-table-body');
+
+    for (var i=0; i<result.whitelistedPaths.length; i++) {
+        item = result.whitelistedPaths[i]
+        var row = addRow(whitelistTablebody);
+        addCol(row, item);
+    }
 }
 function addRow(body) {
     var row =  document.createElement("tr");
