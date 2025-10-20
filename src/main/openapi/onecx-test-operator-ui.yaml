@@ -65,6 +65,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SecurityTestExecution'
+        whitelistedPaths:
+          type: array
+          items:
+            type: string
     SecurityTestExecution:
       type: object
       properties:

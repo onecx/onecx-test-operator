@@ -14,5 +14,6 @@ public interface UIMapper {
     TestRequest map(TestRequestDTO dto);
 
     @Mapping(target = "removeExecutionsItem", ignore = true)
+    @Mapping(target = "removeWhitelistedPathsItem", ignore = true)
     TestResponseDTO create(TestResponse data);
 }
