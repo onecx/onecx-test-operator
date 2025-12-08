@@ -1,1 +1,0 @@
-* xref:onecx-test-operator:index.adoc[Test Operator]
