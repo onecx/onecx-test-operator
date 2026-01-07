@@ -60,17 +60,3 @@ app:
           kcConfig:
             defaultClientScopes: [ ocx-pm:read ]
 ----
-
-   kcConfig:
-            defaultClientScopes: [ ocx-pm:read ]
-----
-
-e: permission to run test
-    keycloak:
-      client:
-        enabled: true
-        spec:
-          kcConfig:
-            defaultClientScopes: [ ocx-pm:read ]
-----
-
