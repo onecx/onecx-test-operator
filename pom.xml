@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>onecx-test-operator</artifactId>
+    <name>OneCX Test Operator</name>
     <version>999-SNAPSHOT</version>
 
     <dependencies>
