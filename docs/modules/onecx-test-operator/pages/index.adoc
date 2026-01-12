@@ -1,8 +1,7 @@
 include::onecx-test-operator-attributes.adoc[opts=optional]
 
-== onecx-test-operator
+= OneCX Test Operator
 
-include::docs.adoc[opts=optional]
 
 
 include::onecx-test-operator-docs.adoc[opts=optional]
