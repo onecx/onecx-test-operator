@@ -2,8 +2,6 @@ app:
   serviceAccount:
     enabled: true
   name: operator
-  template:
-    oidc_client_id: "ONECX_OIDC_CLIENT_CLIENT_ID"
   image:
     repository: "onecx/onecx-test-operator"
   envCustom:
