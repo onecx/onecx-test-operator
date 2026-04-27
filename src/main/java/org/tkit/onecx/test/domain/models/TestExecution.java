@@ -15,7 +15,6 @@ public class TestExecution {
     private Integer code;
     private Status status;
     private String detailedStatus;
-    private TestType testType;
 
     public enum Status {
 
@@ -29,17 +28,4 @@ public class TestExecution {
 
         FAILED
     }
-
-    public enum TestType {
-
-        BFF_Q_ENDPOINTS_VIA_UI_PROXY,
-        BFF_API_ENDPOINTS_VIA_UI_PROXY_NO_ID_TOKEN,
-        BFF_API_ENDPOINTS_VIA_UI_PROXY_NO_ACCESS_TOKEN,
-        BFF_API_ENDPOINTS_VIA_UI_PROXY_NO_PARTY_ID,
-        BFF_API_ENDPOINTS_VIA_UI_PROXY_INVALID_ACCESS_TOKEN,
-        BFF_API_ENDPOINTS_VIA_UI_PROXY_INVALID_ID_TOKEN,
-        BFF_API_ENDPOINTS_VIA_UI_PROXY_VALID_TOKENS_AND_PARTY_ID;
-
-    }
-
 }
