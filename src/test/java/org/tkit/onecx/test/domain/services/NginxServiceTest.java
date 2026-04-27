@@ -18,14 +18,14 @@ class NginxServiceTest {
     void getProxyPassLocation_extractsForwardedLocationsAndServicePathKeys() {
         var config = """
                 server {
-                location /test-ui/api/a4ResourceOrderBff/v1 {
-                proxy_pass http://test-bff-app/api/a4ResourceOrderBff/v1;
+                location /test-ui/api/testBff/v1 {
+                proxy_pass http://test-bff-app/api/testBff/v1;
                 }
-                location /test-ui/party/v3/organizations {
-                proxy_pass http://test-bff-app/party/v3/organizations;
+                location /test-ui/testp/v3/testo {
+                proxy_pass http://test-bff-app/testp/v3/testo;
                 }
-                location /test-ui/api/bff-proxy/portal-menu {
-                proxy_pass http://test-bff-app/api/bff-proxy/portal-menu;
+                location /test-ui/api/bff-proxy/p-menu {
+                proxy_pass http://test-bff-app/api/bff-proxy/p-menu;
                 }
                 location /test-ui/bff/api/bff-proxy/applications/test-ui/permissions {
                 proxy_pass http://test-bff-app/api/bff-proxy/applications/test-ui/permissions;
@@ -64,9 +64,9 @@ class NginxServiceTest {
                 .isEqualTo("/web-resources");
 
         assertThat(result)
-                .filteredOn(pc -> "/test-ui/api/bff-proxy/portal-menu".equals(pc.getLocation()))
+                .filteredOn(pc -> "/test-ui/api/bff-proxy/p-menu".equals(pc.getLocation()))
                 .singleElement()
                 .extracting("servicePathKey")
-                .isEqualTo("/api/bff-proxy/portal-menu");
+                .isEqualTo("/api/bff-proxy/p-menu");
     }
 }
