@@ -14,15 +14,32 @@ public class TestExecution {
     private String url;
     private Integer code;
     private Status status;
-    private String error;
+    private String detailedStatus;
+    private TestType testType;
 
     public enum Status {
 
         OK,
 
-        FAILED,
+        //example: expected 401 response got 403
+        WARNING,
 
-        ERROR;
+        //unable to invoke call (unknowhostexcpetion, timeout and similar)
+        ERROR,
+
+        FAILED
+    }
+
+    public enum TestType {
+
+        BFF_Q_ENDPOINTS_VIA_UI_PROXY,
+        BFF_API_ENDPOINTS_VIA_UI_PROXY_NO_ID_TOKEN,
+        BFF_API_ENDPOINTS_VIA_UI_PROXY_NO_ACCESS_TOKEN,
+        BFF_API_ENDPOINTS_VIA_UI_PROXY_NO_PARTY_ID,
+        BFF_API_ENDPOINTS_VIA_UI_PROXY_INVALID_ACCESS_TOKEN,
+        BFF_API_ENDPOINTS_VIA_UI_PROXY_INVALID_ID_TOKEN,
+        BFF_API_ENDPOINTS_VIA_UI_PROXY_VALID_TOKENS_AND_PARTY_ID;
+
     }
 
 }

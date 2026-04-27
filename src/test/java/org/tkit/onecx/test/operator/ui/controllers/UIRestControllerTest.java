@@ -199,7 +199,7 @@ class UIRestControllerTest extends AbstractTest {
         assertThat(dto).isNotNull();
 
         assertThat(dto.getId()).isEqualTo(request.getId());
-        assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.FAILED);
+        assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.ERROR);
         assertThat(dto.getExecutions()).isNotNull();
     }
 

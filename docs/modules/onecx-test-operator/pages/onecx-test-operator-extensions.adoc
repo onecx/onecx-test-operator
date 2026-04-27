@@ -96,7 +96,7 @@ h| Version
 
 | https://onecx.github.io/docs/onecx-quarkus/current/onecx-quarkus/onecx-core.html[Link]
 | 
-| 2.3.0
+| 2.4.0
 
 | quarkus-oidc
 

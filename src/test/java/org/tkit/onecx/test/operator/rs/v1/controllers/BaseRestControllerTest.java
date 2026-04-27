@@ -198,7 +198,7 @@ class BaseRestControllerTest extends AbstractTest {
         assertThat(dto.getId()).isEqualTo(request.getId());
         assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.OK);
         assertThat(dto.getExecutions()).isNotNull();
-        assertThat(dto.getExecutions()).size().isEqualTo(9);
+        assertThat(dto.getExecutions()).size().isEqualTo(13);
         var e = dto.getExecutions().get(4);
         assertThat(e).isNotNull();
         assertThat(e.getStatus()).isEqualTo(ExecutionStatusDTO.OK);
@@ -251,7 +251,7 @@ class BaseRestControllerTest extends AbstractTest {
         assertThat(dto).isNotNull();
 
         assertThat(dto.getErrorCode()).isEqualTo(ExceptionMapper.ErrorCodes.SERVICE_ERROR.name());
-        assertThat(dto.getDetail()).isEqualTo("No Quarkus proxy configuration found");
+        assertThat(dto.getDetail()).isEqualTo("No BFF proxy configuration found");
     }
 
     @Test
@@ -401,9 +401,9 @@ class BaseRestControllerTest extends AbstractTest {
         assertThat(dto).isNotNull();
 
         assertThat(dto.getId()).isEqualTo(request.getId());
-        assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.FAILED);
+        assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.ERROR);
         assertThat(dto.getExecutions()).isNotNull();
-        var e = dto.getExecutions().get(4);
+        var e = dto.getExecutions().get(8);
         assertThat(e).isNotNull();
         assertThat(e.getStatus()).isEqualTo(ExecutionStatusDTO.ERROR);
     }
@@ -587,7 +587,7 @@ class BaseRestControllerTest extends AbstractTest {
 
         assertThat(dto).isNotNull();
         assertThat(dto.getId()).isEqualTo(request.getId());
-        assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.FAILED);
+        assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.ERROR);
         assertThat(dto.getExecutions()).isNotNull();
         var e = dto.getExecutions().get(dto.getExecutions().size() - 1);
         assertThat(e).isNotNull();
@@ -635,7 +635,7 @@ class BaseRestControllerTest extends AbstractTest {
 
         assertThat(dto.getId()).isEqualTo(request.getId());
         assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.OK);
-        assertThat(dto.getExecutions()).isNotNull().size().isEqualTo(4);
+        assertThat(dto.getExecutions()).isNotNull().size().isEqualTo(8);
     }
 
     @Test
@@ -676,7 +676,7 @@ class BaseRestControllerTest extends AbstractTest {
 
         assertThat(dto.getId()).isEqualTo(request.getId());
         assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.OK);
-        assertThat(dto.getExecutions()).size().isEqualTo(4);
+        assertThat(dto.getExecutions()).size().isEqualTo(8);
     }
 
     @Test
@@ -718,7 +718,7 @@ class BaseRestControllerTest extends AbstractTest {
 
         assertThat(dto.getId()).isEqualTo(request.getId());
         assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.OK);
-        assertThat(dto.getExecutions()).size().isEqualTo(4);
+        assertThat(dto.getExecutions()).size().isEqualTo(8);
     }
 
     @Test
@@ -761,7 +761,7 @@ class BaseRestControllerTest extends AbstractTest {
 
         assertThat(dto.getId()).isEqualTo(request.getId());
         assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.OK);
-        assertThat(dto.getExecutions()).size().isEqualTo(4);
+        assertThat(dto.getExecutions()).size().isEqualTo(8);
     }
 
     @Test
@@ -797,7 +797,7 @@ class BaseRestControllerTest extends AbstractTest {
                 .extract().as(SecurityTestResponseDTO.class);
 
         assertThat(dto).isNotNull();
-        assertThat(dto.getExecutions()).size().isEqualTo(4);
+        assertThat(dto.getExecutions()).size().isEqualTo(8);
         assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.OK);
     }
 

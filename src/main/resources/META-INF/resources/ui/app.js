@@ -40,13 +40,13 @@ async function call(json) {
 }
 
 function showErrorResult(msg, code, data) {
-    console.error(msg, data);
-    const status = document.getElementById('result-status');
-    status.textContent=msg;
-    status.classList.remove("label-success");
-    status.classList.add("label-error");
-    document.getElementById('result-error').textContent=code + ':  ' + data;
-}
+     console.error(msg, data);
+     const status = document.getElementById('result-status');
+     status.textContent=msg;
+     status.classList.remove("label-success");
+     status.classList.add("label-error");
+     document.getElementById('result-detailed-status').textContent=code + ':  ' + data;
+ }
 
 function requestFinished() {
     document.getElementById('submit').disabled=false;
@@ -54,50 +54,55 @@ function requestFinished() {
 }
 
 function requestStart() {
-    document.getElementById('submit').disabled=true;
-    document.getElementById('progress').removeAttribute('hidden')
+     document.getElementById('submit').disabled=true;
+     document.getElementById('progress').removeAttribute('hidden')
 
-    const status = document.getElementById('result-status');
-    status.textContent='';
-    status.classList.add("label-success");
-    status.classList.remove("label-error");
-    document.getElementById('result-id').textContent='';
-    const body = document.getElementById('result-table-body');
-    body.innerHTML = '';
-}
+     const status = document.getElementById('result-status');
+     status.textContent='';
+     status.classList.add("label-success");
+     status.classList.remove("label-error");
+     document.getElementById('result-id').textContent='';
+     document.getElementById('result-detailed-status').textContent='';
+     const body = document.getElementById('result-table-body');
+     body.innerHTML = '';
+ }
 
 function showResult(result) {
-    const status = document.getElementById('result-status');
-    status.textContent=result.status;
-    if (result.status == 'OK') {
-        status.classList.add("label-success");
-        status.classList.remove("label-error");
-    } else {
-        status.classList.remove("label-success");
-        status.classList.add("label-error");
-    }
-    document.getElementById('result-id').textContent='Id: ' + result.id;
+     const status = document.getElementById('result-status');
+     status.textContent=result.status;
+     if (result.status == 'OK') {
+         status.classList.add("label-success");
+         status.classList.remove("label-error");
+     } else {
+         status.classList.remove("label-success");
+         status.classList.add("label-error");
+     }
+     document.getElementById('result-id').textContent='Id: ' + result.id;
 
-    const body = document.getElementById('result-table-body');
-    for (var i=0; i<result.executions.length; i++) {
-       item = result.executions[i]
-        var row = addRow(body);
-        addCol(row, item.url);
-        addCol(row, item.path);
-        addCol(row, item.proxy);
-        addCol(row, item.code);
-        addColStatus(row, item.status);
-        addCol(row, item.error);
-    }
+     if (result.detailedStatus) {
+         document.getElementById('result-detailed-status').textContent=result.detailedStatus;
+     }
 
-    const whitelistTablebody = document.getElementById('whitelist-table-body');
+     const body = document.getElementById('result-table-body');
+     for (var i=0; i<result.executions.length; i++) {
+        item = result.executions[i]
+         var row = addRow(body);
+         addCol(row, item.url);
+         addCol(row, item.path);
+         addCol(row, item.proxy);
+         addCol(row, item.code);
+         addColStatus(row, item.status);
+         addCol(row, item.detailedStatus ? item.detailedStatus : '');
+     }
 
-    for (var i=0; i<result.whitelistedPaths.length; i++) {
-        item = result.whitelistedPaths[i]
-        var row = addRow(whitelistTablebody);
-        addCol(row, item);
-    }
-}
+     const whitelistTablebody = document.getElementById('whitelist-table-body');
+
+     for (var i=0; i<result.whitelistedPaths.length; i++) {
+         item = result.whitelistedPaths[i]
+         var row = addRow(whitelistTablebody);
+         addCol(row, item);
+     }
+ }
 function addRow(body) {
     var row =  document.createElement("tr");
     body.appendChild( row );

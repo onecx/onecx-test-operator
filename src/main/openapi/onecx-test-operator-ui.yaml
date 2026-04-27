@@ -60,7 +60,9 @@ components:
         service:
           type: string
         status:
-          $ref: "#/components/schemas/ExecutionStatus"
+          $ref: "#/components/schemas/TestResponseStatus"
+        detailedStatus:
+          type: string
         executions:
           type: array
           items:
@@ -82,14 +84,22 @@ components:
           type: integer
         status:
           $ref: "#/components/schemas/ExecutionStatus"
-        error:
-          type: string
+        detailedStatus:
+            type: string
+    TestResponseStatus:
+      type: string
+      enum:
+        - OK
+        - FAILED
+        - ERROR
+        - WARNING
     ExecutionStatus:
       type: string
       enum:
         - OK
         - FAILED
         - ERROR
+        - WARNING
     ProblemDetailResponse:
       type: object
       properties:

@@ -7,6 +7,7 @@ import org.tkit.onecx.test.domain.models.TestResponse;
 
 import gen.org.tkit.onecx.test.operator.ui.model.TestRequestDTO;
 import gen.org.tkit.onecx.test.operator.ui.model.TestResponseDTO;
+import gen.org.tkit.onecx.test.operator.ui.model.TestResponseStatusDTO;
 
 @Mapper
 public interface UIMapper {
@@ -16,4 +17,7 @@ public interface UIMapper {
     @Mapping(target = "removeExecutionsItem", ignore = true)
     @Mapping(target = "removeWhitelistedPathsItem", ignore = true)
     TestResponseDTO create(TestResponse data);
+
+    TestResponseStatusDTO create(TestResponse.Status status);
+
 }

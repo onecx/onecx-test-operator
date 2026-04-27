@@ -2,6 +2,8 @@ package org.tkit.onecx.test.domain.services;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -15,14 +17,18 @@ import org.eclipse.microprofile.openapi.models.PathItem;
 import org.eclipse.microprofile.openapi.models.parameters.Parameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 import org.tkit.onecx.test.domain.models.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.smallrye.mutiny.TimeoutException;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.mutiny.core.Vertx;
+import io.vertx.mutiny.core.buffer.Buffer;
+import io.vertx.mutiny.ext.web.client.HttpResponse;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.uritemplate.UriTemplate;
 
@@ -44,6 +50,9 @@ public class TestService {
 
     @Inject
     QuarkusService quarkusService;
+
+    @Inject
+    SpringBootService springBootService;
 
     @Inject
     Vertx vertx;
@@ -68,22 +77,25 @@ public class TestService {
         if (nginxConfig == null || nginxConfig.isEmpty()) {
             throw new ServiceException("no nginx config found");
         }
+        if (log.isDebugEnabled()) {
+            log.info("nginx config: {}", nginxConfig);
+        }
+
         var proxyPassLocations = nginxService.getProxyPassLocation(nginxConfig);
 
         if (proxyPassLocations.isEmpty()) {
             throw new ServiceException("no proxy pass locations found");
         }
 
-        ProxyConfiguration quarkusProxyConfiguration = findQuarkusProxyConfiguration(proxyPassLocations);
-
-        if (quarkusProxyConfiguration == null) {
-            log.error("No Quarkus proxy configuration found");
-            throw new ServiceException("No Quarkus proxy configuration found");
-        }
-
-        log.info("Proxy pass locations found {}", quarkusProxyConfiguration);
-
         final var url = url(request);
+        Map<String, Map<String, ProxyConfiguration>> routesByHost = groupRoutesByHost(proxyPassLocations);
+
+        Map<String, Map<String, ProxyConfiguration>> bffRoutesByHost = findBffRoutesByHost(url, routesByHost);
+
+        if (bffRoutesByHost.isEmpty()) {
+            log.error("No BFF proxy configuration found");
+            throw new ServiceException("No BFF proxy configuration found");
+        }
 
         var result = new TestResponse();
         result.setId(request.getId());
@@ -92,26 +104,70 @@ public class TestService {
         result.setExecutions(new ArrayList<>());
         result.setWhitelistedPaths(new ArrayList<>());
 
-        testQuarkusQService("health", result, url, quarkusProxyConfiguration, "/q/health");
-        testQuarkusQService("metrics", result, url, quarkusProxyConfiguration, "/q/metrics");
-        testQuarkusQService("openapi", result, url, quarkusProxyConfiguration, "/q/openapi");
-        testQuarkusQService("swagger-ui", result, url, quarkusProxyConfiguration, "/q/swagger-ui");
+        bffRoutesByHost.forEach((host, routes) -> {
+            var serviceType = deteremineServiceType(host);
+            if (serviceType == null) {
+                throw new ServiceException("Service type detection failed");
+            }
+            log.info("Determined service type {} for host {}", serviceType, host);
+            ProxyConfiguration fallbackPC = routes.values().stream().findFirst().orElse(null);
+            if (fallbackPC == null) {
+                return;
+            }
 
-        try {
-            log.info("OpenAPI location path: {}, proxy path: {}", quarkusProxyConfiguration.getLocation(),
-                    quarkusProxyConfiguration.getProxyPass());
-            var openapi = quarkusService.getOpenApi(quarkusProxyConfiguration.getProxyPass());
+            log.info("Proxy pass locations found for host {} and serviceType {} -> {}", host, serviceType, routes.keySet());
 
-            testOpenApi(result, url, quarkusProxyConfiguration, openapi);
-        } catch (Exception ex) {
-            log.error("Error execute test for {} - {}, error: {}", quarkusProxyConfiguration.getProxyPass(),
-                    quarkusProxyConfiguration.getLocation(), ex.getMessage(), ex);
-            result.getExecutions().add(createExecutionError(quarkusProxyConfiguration.getProxyPass(),
-                    quarkusProxyConfiguration.getLocation(), url, ex.getMessage()));
+            var backendService = ServiceBFFTechnology.QUARKUS == serviceType ? quarkusService : springBootService;
+
+            // TEST inaccessibility  usually used health/metrics/openapi/swaggerui endpoints via UI proxy
+            testInaccessibilityOfGenericBffEndpoints("health", result, url,
+                    resolveProxyConfiguration(routes, fallbackPC, "/q/health"), "/q/health");
+            testInaccessibilityOfGenericBffEndpoints("health", result, url,
+                    resolveProxyConfiguration(routes, fallbackPC, "/actuator/health"), "/actuator/health");
+            testInaccessibilityOfGenericBffEndpoints("metrics", result, url,
+                    resolveProxyConfiguration(routes, fallbackPC, "/q/metrics"), "/q/metrics");
+            testInaccessibilityOfGenericBffEndpoints("metrics", result, url,
+                    resolveProxyConfiguration(routes, fallbackPC, "/actuator/metrics"), "/actuator/metrics");
+            String openApiPath = backendService.resolveOpenApiPath(host);
+            if (openApiPath != null) {
+                testInaccessibilityOfGenericBffEndpoints("openapi", result, url,
+                        resolveProxyConfiguration(routes, fallbackPC, openApiPath), openApiPath);
+            }
+            testInaccessibilityOfGenericBffEndpoints("swagger-ui", result, url,
+                    resolveProxyConfiguration(routes, fallbackPC, "/q/swagger-ui"), "/q/swagger-ui");
+            testInaccessibilityOfGenericBffEndpoints("swagger-ui", result, url,
+                    resolveProxyConfiguration(routes, fallbackPC, "/swagger-ui.html"), "/swagger-ui.html");
+            testInaccessibilityOfGenericBffEndpoints("swagger-ui", result, url,
+                    resolveProxyConfiguration(routes, fallbackPC, "/swagger-ui/index.html"), "/swagger-ui/index.html");
+
+            try {
+                log.info("OpenAPI location path: {}, proxy host: {}, proxy path: {}",
+                        fallbackPC.getLocation(),
+                        fallbackPC.getProxyHost(), fallbackPC.getProxyPath());
+                var openapi = backendService.getOpenApi(host);
+
+                testOpenApi(result, url, routes, fallbackPC, openapi);
+            } catch (Exception ex) {
+                log.error("Error execute test for {} - {}, error: {}", fallbackPC.getProxyHost(),
+                        fallbackPC.getLocation(), ex.getMessage(), ex);
+                result.getExecutions().add(createExecutionError(fallbackPC.getProxyHost(),
+                        fallbackPC.getLocation(), url, ex.getMessage()));
+            }
+        });
+
+        boolean failed = result.getExecutions().stream().anyMatch(x -> x.getStatus() == TestExecution.Status.FAILED);
+        boolean hasErrors = result.getExecutions().stream().anyMatch(x -> x.getStatus() == TestExecution.Status.ERROR);
+        boolean hasWarnings = result.getExecutions().stream()
+                .anyMatch(x -> x.getStatus() == TestExecution.Status.WARNING);
+        if (failed) {
+            result.setStatus(failed ? TestResponse.Status.FAILED : TestResponse.Status.OK);
+        } else if (hasErrors) {
+            result.setStatus(TestResponse.Status.ERROR);
+        } else if (hasWarnings) {
+            result.setStatus(TestResponse.Status.WARNING);
+        } else {
+            result.setStatus(TestResponse.Status.OK);
         }
-
-        var failed = result.getExecutions().stream().anyMatch(x -> x.getStatus() != TestExecution.Status.OK);
-        result.setStatus(failed ? TestResponse.Status.FAILED : TestResponse.Status.OK);
 
         String jsonResult = toJson(result);
 
@@ -120,14 +176,54 @@ public class TestService {
         return result;
     }
 
-    private ProxyConfiguration findQuarkusProxyConfiguration(List<ProxyConfiguration> proxyPassLocations) {
-        return proxyPassLocations.stream()
-                .filter(pc -> quarkusService.testQuarkusEndpoint(pc.getProxyPass()) == 200)
-                .findAny()
-                .orElseGet(() -> null);
+    private Map<String, Map<String, ProxyConfiguration>> groupRoutesByHost(List<ProxyConfiguration> proxyPassLocations) {
+        var result = new LinkedHashMap<String, Map<String, ProxyConfiguration>>();
+        proxyPassLocations.stream()
+                .filter(pc -> pc.getProxyHost() != null)
+                .forEach(pc -> {
+                    var routeKey = pc.getServicePathKey() != null ? pc.getServicePathKey() : pc.getLocation();
+                    result.computeIfAbsent(pc.getProxyHost(), key -> new LinkedHashMap<>())
+                            .putIfAbsent(routeKey, pc);
+                });
+        return result;
     }
 
-    private void testQuarkusQService(String name, TestResponse result, String domain, ProxyConfiguration pc, String path) {
+    private Map<String, Map<String, ProxyConfiguration>> findBffRoutesByHost(String domain,
+            Map<String, Map<String, ProxyConfiguration>> routesByHost) {
+        var result = new LinkedHashMap<String, Map<String, ProxyConfiguration>>();
+
+        routesByHost.forEach((host, routes) -> {
+            var filtered = new LinkedHashMap<String, ProxyConfiguration>();
+            routes.forEach((key, route) -> {
+                if (isProxyHostBff(route.getProxyHost())) {
+                    filtered.put(key, route);
+                }
+            });
+
+            if (!filtered.isEmpty()) {
+                result.put(host, filtered);
+            }
+        });
+
+        return result;
+    }
+
+    private ServiceBFFTechnology deteremineServiceType(String hostURI) {
+        if (quarkusService.invokeGeneric2xxEndpoint(hostURI) == Response.Status.OK.getStatusCode()) {
+            return ServiceBFFTechnology.QUARKUS;
+        }
+        if (springBootService.invokeGeneric2xxEndpoint(hostURI) == Response.Status.OK.getStatusCode()) {
+            return ServiceBFFTechnology.SPRINGBOOT;
+        }
+        return null;
+    }
+
+    private boolean isProxyHostBff(String hostURI) {
+        return deteremineServiceType(hostURI) != null;
+    }
+
+    private void testInaccessibilityOfGenericBffEndpoints(String name, TestResponse result, String domain,
+            ProxyConfiguration pc, String path) {
         var uri = createUri(domain, pc, path);
         try {
             log.info("{} path: {} proxy: {} uri: {}", name, path, pc, uri);
@@ -143,7 +239,7 @@ public class TestService {
 
             log.info("{}-test {} {} {}", name, uri, code, status);
 
-            result.getExecutions().add(createExecution(path, pc.getLocation(), status, uri, code));
+            result.getExecutions().add(createExecution(path, pc.getLocation(), status, null, uri, code));
 
         } catch (Exception ex) {
             log.error("Error execute {} test for {} - {}, error: {}", name, path, pc.getLocation(), ex.getMessage(), ex);
@@ -151,13 +247,14 @@ public class TestService {
         }
     }
 
-    private void testOpenApi(TestResponse result, String domain, ProxyConfiguration proxyConfiguration, OpenAPI openapi) {
+    private void testOpenApi(TestResponse result, String domain, Map<String, ProxyConfiguration> routes,
+            ProxyConfiguration fallbackProxyConfiguration, OpenAPI openapi) {
         if (openapi.getPaths() == null) {
             log.warn("No paths found in OpenAPI definition");
             return;
         }
         openapi.getPaths().getPathItems().forEach((path, item) -> {
-
+            var proxyConfiguration = resolveProxyConfiguration(routes, fallbackProxyConfiguration, path);
             var uri = createUri(domain, proxyConfiguration, path);
             item.getOperations()
                     .forEach((method, op) -> {
@@ -167,6 +264,29 @@ public class TestService {
 
                     );
         });
+    }
+
+    private ProxyConfiguration resolveProxyConfiguration(Map<String, ProxyConfiguration> routes,
+            ProxyConfiguration fallbackProxyConfiguration, String path) {
+        if (routes == null || routes.isEmpty()) {
+            log.warn("No proxy configurations found for host {}, using fallback configuration {}",
+                    fallbackProxyConfiguration.getProxyHost(), fallbackProxyConfiguration);
+            return fallbackProxyConfiguration;
+        }
+        return routes.values().stream()
+                .filter(pc -> path.startsWith(normalizeServicePathKey(pc.getServicePathKey())))
+                .max(Comparator.comparingInt(pc -> normalizeServicePathKey(pc.getServicePathKey()).length()))
+                .orElse(fallbackProxyConfiguration);
+    }
+
+    private String normalizeServicePathKey(String key) {
+        if (key == null || key.isBlank()) {
+            return "";
+        }
+        if (key.startsWith("/")) {
+            return key;
+        }
+        return "/" + key;
     }
 
     private boolean hasXonecxNoSecurity(Operation op, String path) {
@@ -207,16 +327,41 @@ public class TestService {
                 });
             }
 
-            var response = request.send().await().atMost(Duration.ofSeconds(5));
-            var code = response.statusCode();
-            var status = code == Response.Status.UNAUTHORIZED.getStatusCode() ? TestExecution.Status.OK
-                    : TestExecution.Status.FAILED;
-            if (status == TestExecution.Status.FAILED) {
-                log.error("Security test failed  {} {} {}", method, uri, code);
-            } else {
-                log.info("Security test passed  {} {} {}", method, uri, code);
+            TestExecution.Status status = null;
+            String detailedStatus = null;
+            Level resultLogLevel = Level.INFO;
+            int code = -1;
+            try {
+                HttpResponse<Buffer> response = request.send().await().atMost(Duration.ofSeconds(5));
+                code = response.statusCode();
+
+                switch (code) {
+                    case 401:
+                        status = TestExecution.Status.OK;
+                        break;
+                    case 403:
+                        status = TestExecution.Status.WARNING;
+                        detailedStatus = "Expected 401 response but got 403. This may indicate that the endpoint is protected but not properly configured to return 401 for unauthorized access.";
+                        break;
+                    default:
+                        status = TestExecution.Status.FAILED;
+                        detailedStatus = "Expected 401 response but got " + code;
+                        resultLogLevel = Level.ERROR;
+                        break;
+                }
+                result.getExecutions().add(createExecution(path, proxyPath, status, detailedStatus, uri, code));
+            } catch (TimeoutException ex) {
+                status = TestExecution.Status.ERROR;
+                resultLogLevel = Level.WARN;
+                result.getExecutions().add(createExecutionError(path, proxyPath, uri, "Request timed out: " + ex.getMessage()));
+            } catch (Exception ex) {
+                resultLogLevel = Level.ERROR;
+                status = TestExecution.Status.ERROR;
+                result.getExecutions().add(createExecutionError(path, proxyPath, uri, ex.getMessage()));
             }
-            result.getExecutions().add(createExecution(path, proxyPath, status, uri, code));
+            log.atLevel(resultLogLevel).log("Security test result:{}  method: {} uri: {}  httpCode: {}", status, method, uri,
+                    code);
+
         } catch (Exception ex) {
             result.getExecutions().add(createExecutionError(path, proxyPath, uri, ex.getMessage()));
         }
@@ -226,30 +371,32 @@ public class TestService {
         var e = new TestExecution();
         e.setPath(path);
         e.setProxy(proxyPath);
-        e.setError(error);
+        e.setDetailedStatus(error);
         e.setUrl(uri);
         e.setStatus(TestExecution.Status.ERROR);
         return e;
     }
 
-    private TestExecution createExecution(String path, String proxyPath, TestExecution.Status status, String uri, int code) {
+    private TestExecution createExecution(String path, String proxyPath, TestExecution.Status status, String detailedStatus,
+            String uri, int code) {
         var e = new TestExecution();
         e.setPath(path);
         e.setProxy(proxyPath);
         e.setStatus(status);
         e.setUrl(uri);
         e.setCode(code);
+        e.setDetailedStatus(detailedStatus);
         return e;
     }
 
     private TestExecution createExecution(String path, String proxyPath, TestExecution.Status status, String uri,
-            String error) {
+            String detailedStatus) {
         var e = new TestExecution();
         e.setPath(path);
         e.setProxy(proxyPath);
         e.setStatus(status);
         e.setUrl(uri);
-        e.setError(error);
+        e.setDetailedStatus(detailedStatus);
         return e;
     }
 
@@ -262,9 +409,32 @@ public class TestService {
     }
 
     private String createUri(String domain, ProxyConfiguration pc, String path) {
-        String mergedPath = removePathPrefix(pc.getProxyPassFull(), path);
+        String mergedPath = removePathPrefix(pc.getProxyPath(), path);
+        String uri = domain + pc.getLocation() + mergedPath;
+        return normalizeUri(uri);
+    }
 
-        return domain + pc.getLocation() + mergedPath;
+    private String normalizeUri(String uri) {
+        if (uri == null || uri.isBlank()) {
+            return uri;
+        }
+
+        String normalized = uri;
+
+        // Normalize double slashes while preserving scheme (e.g., https://)
+        int schemeIndex = normalized.indexOf("://");
+        if (schemeIndex >= 0) {
+            String scheme = normalized.substring(0, schemeIndex + 3);
+            String remainder = normalized.substring(schemeIndex + 3).replaceAll("/{2,}", "/");
+            normalized = scheme + remainder;
+        } else {
+            normalized = normalized.replaceAll("/{2,}", "/");
+        }
+
+        // Replace path placeholders like {id}, {userId}, etc. with 1234
+        normalized = normalized.replaceAll("\\{[^/}]+}", "1234");
+
+        return normalized;
     }
 
     /**
