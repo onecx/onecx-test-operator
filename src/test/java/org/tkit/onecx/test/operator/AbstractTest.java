@@ -16,6 +16,7 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.models.OpenAPI;
 import org.mockserver.client.MockServerClient;
 import org.mockserver.mock.Expectation;
+import org.mockserver.model.Delay;
 import org.mockserver.model.MediaType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -220,14 +221,8 @@ public abstract class AbstractTest {
 
     protected void createDelayedResponse(String path, String apiPath, Response.Status status, long delayMs) {
         addExpectation(mockServerClient.when(request().withPath(path + apiPath).withMethod(HttpMethod.GET))
-                .respond(httpRequest -> {
-                    try {
-                        Thread.sleep(delayMs);
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                    }
-                    return response().withStatusCode(status.getStatusCode());
-                }));
+                .respond(httpRequest -> response().withStatusCode(status.getStatusCode())
+                        .withDelay(Delay.milliseconds(delayMs))));
     }
 
     protected void addExpectation(Expectation[] exceptions) {

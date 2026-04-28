@@ -16,8 +16,8 @@ import static org.eclipse.microprofile.openapi.OASFactory.createPathItem;
 import static org.eclipse.microprofile.openapi.OASFactory.createPaths;
 import static org.eclipse.microprofile.openapi.OASFactory.createServer;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockserver.model.HttpRequest.request;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -26,7 +26,9 @@ import org.eclipse.microprofile.openapi.models.parameters.Parameter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.tkit.onecx.test.domain.models.ProxyConfiguration;
 import org.tkit.onecx.test.domain.services.K8sExecService;
+import org.tkit.onecx.test.domain.services.NginxService;
 import org.tkit.onecx.test.operator.AbstractTest;
 import org.tkit.onecx.test.operator.rs.v1.mappers.ExceptionMapper;
 import org.tkit.quarkus.security.test.GenerateKeycloakClient;
@@ -61,9 +63,19 @@ class BaseRestControllerTest extends AbstractTest {
     @InjectMock
     K8sExecService k8sExecService;
 
+    @InjectMock
+    NginxService nginxService;
+
+    private final NginxService realNginxService = new NginxService();
+
     @BeforeEach
     void resetExpectation() {
         clearExpectation(mockServerClient);
+        // Keep existing tests behavior by defaulting mocked NginxService to real parsing.
+        Mockito.lenient().doAnswer(invocation -> {
+            var output = invocation.getArgument(0, String.class);
+            return output == null ? List.of() : realNginxService.getProxyPassLocation(output);
+        }).when(nginxService).getProxyPassLocation(any());
     }
 
     @Test
@@ -209,6 +221,148 @@ class BaseRestControllerTest extends AbstractTest {
         assertThat(dto.getWhitelistedPaths()).isNotNull();
         assertThat(dto.getWhitelistedPaths()).size().isEqualTo(1);
         assertThat(dto.getWhitelistedPaths().get(0)).isEqualTo("/cool-prefix-rs/test/public");
+    }
+
+    @Test
+    void runTest_normalizeServicePathKeyBlankBranchViaPublicPath() {
+        var id = UUID.randomUUID().toString();
+        var service = "test-blank-key-service-ui";
+        var pod = "test-blank-key-ui";
+        var apiPath = "/cool-prefix-rs/test";
+        var location = "/blank-route";
+
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint", String.class);
+
+        createServiceAndPod(service, pod);
+        mockQuarkusEndpoints(location);
+
+        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
+                .thenReturn("location /dummy { proxy_pass " + mockUrl + "; }");
+
+        Mockito.doReturn(List.of(
+                new ProxyConfiguration(location, mockUrl, "/cool-prefix-rs", "   ")))
+                .when(nginxService).getProxyPassLocation(any());
+
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths().addPathItem(apiPath, createPathItem().GET(createOperation()))));
+
+        createResponse(location, "/test", UNAUTHORIZED);
+
+        var request = new SecurityTestRequestDTO()
+                .id(id)
+                .service(service)
+                .url(mockUrl);
+
+        var dto = given().when()
+                .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
+                .body(request).contentType(APPLICATION_JSON)
+                .post()
+                .then()
+                .statusCode(OK.getStatusCode())
+                .extract().as(SecurityTestResponseDTO.class);
+
+        assertThat(dto).isNotNull();
+        var execution = dto.getExecutions().stream().filter(e -> apiPath.equals(e.getPath())).findFirst();
+        assertThat(execution).isPresent();
+        assertThat(execution.orElseThrow().getProxy()).isEqualTo(location);
+    }
+
+    @Test
+    void runTest_normalizeServicePathKeyAddsSlashBranchViaPublicPath() {
+        var id = UUID.randomUUID().toString();
+        var service = "test-non-slash-key-service-ui";
+        var pod = "test-non-slash-key-ui";
+        var apiPath = "/cool-prefix-rs/test";
+        var expectedLocation = "/expected-route";
+        var fallbackLocation = "/fallback-route";
+
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint", String.class);
+
+        createServiceAndPod(service, pod);
+        mockQuarkusEndpoints(fallbackLocation);
+
+        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
+                .thenReturn("location /dummy { proxy_pass " + mockUrl + "; }");
+
+        Mockito.doReturn(List.of(
+                new ProxyConfiguration(expectedLocation, mockUrl, "/cool-prefix-rs", "cool-prefix-rs"),
+                new ProxyConfiguration(fallbackLocation, mockUrl, "", "")))
+                .when(nginxService).getProxyPassLocation(any());
+
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths().addPathItem(apiPath, createPathItem().GET(createOperation()))));
+
+        createResponse(expectedLocation, "/test", UNAUTHORIZED);
+
+        var request = new SecurityTestRequestDTO()
+                .id(id)
+                .service(service)
+                .url(mockUrl);
+
+        var dto = given().when()
+                .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
+                .body(request).contentType(APPLICATION_JSON)
+                .post()
+                .then()
+                .statusCode(OK.getStatusCode())
+                .extract().as(SecurityTestResponseDTO.class);
+
+        assertThat(dto).isNotNull();
+        var execution = dto.getExecutions().stream().filter(e -> apiPath.equals(e.getPath())).findFirst();
+        assertThat(execution).isPresent();
+        assertThat(execution.orElseThrow().getProxy()).isEqualTo(expectedLocation);
+    }
+
+    @Test
+    void runTest_filtersOutProxyConfigurationsWithNullProxyHost() {
+        var id = UUID.randomUUID().toString();
+        var service = "test-null-proxy-host-filter-service-ui";
+        var pod = "test-null-proxy-host-filter-ui";
+        var apiPath = "/null-host-filter/test";
+        var validLocation = "/valid-route";
+        var ignoredLocation = "/ignored-null-host-route";
+
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint", String.class);
+
+        createServiceAndPod(service, pod);
+        mockQuarkusEndpoints(validLocation);
+
+        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
+                .thenReturn("location /dummy { proxy_pass " + mockUrl + "; }");
+
+        Mockito.doReturn(List.of(
+                new ProxyConfiguration(ignoredLocation, null, "/ignored", "/ignored"),
+                new ProxyConfiguration(validLocation, mockUrl, "/null-host-filter", "/null-host-filter")))
+                .when(nginxService).getProxyPassLocation(any());
+
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths().addPathItem(apiPath, createPathItem().GET(createOperation()))));
+
+        createResponse(validLocation, "/test", UNAUTHORIZED);
+
+        var request = new SecurityTestRequestDTO()
+                .id(id)
+                .service(service)
+                .url(mockUrl);
+
+        var dto = given().when()
+                .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
+                .body(request).contentType(APPLICATION_JSON)
+                .post()
+                .then()
+                .statusCode(OK.getStatusCode())
+                .extract().as(SecurityTestResponseDTO.class);
+
+        assertThat(dto).isNotNull();
+        assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.OK);
+
+        var openApiExecution = dto.getExecutions().stream()
+                .filter(e -> apiPath.equals(e.getPath()))
+                .findFirst();
+
+        assertThat(openApiExecution).isPresent();
+        assertThat(openApiExecution.orElseThrow().getProxy()).isEqualTo(validLocation);
+        assertThat(dto.getExecutions()).noneMatch(e -> ignoredLocation.equals(e.getProxy()));
     }
 
     @Test
@@ -408,6 +562,55 @@ class BaseRestControllerTest extends AbstractTest {
         var e = dto.getExecutions().get(8);
         assertThat(e).isNotNull();
         assertThat(e.getStatus()).isEqualTo(ExecutionStatusDTO.ERROR);
+    }
+
+    @Test
+    void runOpenApiRequestCreationExceptionTest() {
+        var id = UUID.randomUUID().toString();
+        var service = "test-request-create-exception-service-ui";
+        var pod = "test-request-create-exception-ui";
+        var path = "/mfe/test/api";
+        var apiPath = "/request-create-exception";
+
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
+        createServiceAndPod(service, pod);
+        mockQuarkusEndpoints(path);
+
+        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
+                .thenReturn(createNginxConfig(path, mockUrl));
+
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080"))
+                .paths(createPaths().addPathItem(apiPath, createPathItem().GET(createOperation()))));
+
+        var request = new SecurityTestRequestDTO()
+                .id(id)
+                .service(service)
+                // Relative URL forces request creation to fail before send(), covering TestService.execute catch(Exception).
+                .url("relative-base-url");
+
+        var dto = given().when()
+                .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
+                .body(request).contentType(APPLICATION_JSON)
+                .post()
+                .then()
+                .statusCode(OK.getStatusCode())
+                .extract().as(SecurityTestResponseDTO.class);
+
+        assertThat(dto).isNotNull();
+        assertThat(dto.getId()).isEqualTo(request.getId());
+        assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.ERROR);
+
+        var execution = dto.getExecutions().stream()
+                .filter(x -> apiPath.equals(x.getPath()))
+                .findFirst();
+
+        assertThat(execution).isPresent();
+        assertThat(execution.orElseThrow().getStatus()).isEqualTo(ExecutionStatusDTO.ERROR);
+        assertThat(execution.orElseThrow().getDetailedStatus()).isNotBlank();
+        assertThat(execution.orElseThrow().getUrl()).contains("relative-base-url");
+        assertThat(execution.orElseThrow().getCode()).isNull();
     }
 
     @Test
@@ -1071,6 +1274,58 @@ class BaseRestControllerTest extends AbstractTest {
     }
 
     @Test
+    void runGenericEndpointTimeoutCatchBranchTest() {
+        var id = UUID.randomUUID().toString();
+        var service = "test-generic-timeout-service-ui";
+        var pod = "test-generic-timeout-ui";
+        var path = "/mfe/test/api";
+
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint", String.class);
+
+        createServiceAndPod(service, pod);
+        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
+                .thenReturn(createNginxConfig(path, mockUrl));
+
+        // Ensure service type detection selects QUARKUS.
+        createMockQHealth("", OK);
+
+        // Force timeout in generic endpoint check to hit catch(Exception) in testInaccessibilityOfGenericBffEndpoints.
+        createDelayedResponse(path, "/q/health", UNAUTHORIZED, 6500L);
+        createResponse(path, "/actuator/health", UNAUTHORIZED);
+        createResponse(path, "/q/metrics", UNAUTHORIZED);
+        createResponse(path, "/actuator/metrics", UNAUTHORIZED);
+        createResponse(path, "/q/swagger-ui", UNAUTHORIZED);
+        createResponse(path, "/swagger-ui.html", UNAUTHORIZED);
+        createResponse(path, "/swagger-ui/index.html", UNAUTHORIZED);
+        createResponse(path, "/q/openapi", UNAUTHORIZED);
+
+        // Keep OpenAPI operation execution out of scope; we only need generic endpoint branch coverage.
+        createOpenApiMock(createOpenAPI().addServer(createServer().url("http://localhost:8080")).paths(createPaths()));
+
+        var request = new SecurityTestRequestDTO()
+                .id(id)
+                .service(service)
+                .url(mockUrl);
+
+        var dto = given().when()
+                .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
+                .body(request).contentType(APPLICATION_JSON)
+                .post()
+                .then()
+                .statusCode(OK.getStatusCode())
+                .extract().as(SecurityTestResponseDTO.class);
+
+        assertThat(dto).isNotNull();
+        var timeoutExecution = dto.getExecutions().stream()
+                .filter(x -> "/q/health".equals(x.getPath()))
+                .findFirst();
+
+        assertThat(timeoutExecution).isPresent();
+        assertThat(timeoutExecution.orElseThrow().getStatus()).isEqualTo(ExecutionStatusDTO.OK);
+        assertThat(timeoutExecution.orElseThrow().getCode()).isNull();
+    }
+
+    @Test
     void runSpringBootServiceTypeUnknownHostExceptionTest() {
         var id = UUID.randomUUID().toString();
         var service = "test-unknown-host-service-ui";
@@ -1132,6 +1387,44 @@ class BaseRestControllerTest extends AbstractTest {
         assertThat(exceptionExecution.orElseThrow().getStatus()).isEqualTo(ExecutionStatusDTO.ERROR);
         assertThat(exceptionExecution.orElseThrow().getDetailedStatus()).isNotBlank();
         assertThat(exceptionExecution.orElseThrow().getDetailedStatus()).contains("unknown-host.invalid");
+    }
+
+    @Test
+    void runOpenApiNullTest() {
+        var id = UUID.randomUUID().toString();
+        var service = "test-null-openapi-service-ui";
+        var pod = "test-null-openapi-ui";
+        var path = "/mfe/test/api";
+
+        var mockUrl = ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint",
+                String.class);
+
+        createServiceAndPod(service, pod);
+        mockQuarkusEndpoints(path);
+
+        Mockito.when(k8sExecService.execCommandOnPod(pod, CMD_CONFIG))
+                .thenReturn(createNginxConfig(path, mockUrl));
+
+        // Do not mock OpenAPI - this simulates openapi retrieval returning null or failing
+        // The service will attempt to get OpenAPI but won't find any mock response
+
+        var request = new SecurityTestRequestDTO()
+                .id(id)
+                .service(service)
+                .url(mockUrl);
+
+        var dto = given().when()
+                .auth().oauth2(keycloakClient.getClientAccessToken(ADMIN))
+                .body(request).contentType(APPLICATION_JSON)
+                .post()
+                .then()
+                .statusCode(OK.getStatusCode())
+                .extract().as(SecurityTestResponseDTO.class);
+
+        assertThat(dto).isNotNull();
+        assertThat(dto.getId()).isEqualTo(request.getId());
+        assertThat(dto.getStatus()).isEqualTo(ExecutionStatusDTO.ERROR);
+        assertThat(dto.getExecutions()).isNotNull().isNotEmpty();
     }
 
 }

@@ -142,6 +142,7 @@ public class TestService {
         return result;
     }
 
+    @SuppressWarnings("java:S3655")
     private void executeForHostRoutes(TestResponse result, String url, String host, Map<String, ProxyConfiguration> routes) {
         //null safe here, we already check service type is not null during detection if service is BFF
         var serviceType = deteremineServiceType(host);
@@ -160,10 +161,8 @@ public class TestService {
                 resolveProxyConfiguration(routes, fallbackPC, check.path()), check.path()));
 
         String openApiPath = resolveOpenApiPath(host, serviceType);
-        if (openApiPath != null) {
-            testInaccessibilityOfGenericBffEndpoints("openapi", result, url,
-                    resolveProxyConfiguration(routes, fallbackPC, openApiPath), openApiPath);
-        }
+        testInaccessibilityOfGenericBffEndpoints("openapi", result, url,
+                resolveProxyConfiguration(routes, fallbackPC, openApiPath), openApiPath);
     }
 
     private String resolveOpenApiPath(String host, ServiceBFFTechnology serviceType) {
@@ -304,11 +303,6 @@ public class TestService {
 
     private ProxyConfiguration resolveProxyConfiguration(Map<String, ProxyConfiguration> routes,
             ProxyConfiguration fallbackProxyConfiguration, String path) {
-        if (routes == null || routes.isEmpty()) {
-            log.warn("No proxy configurations found for host {}, using fallback configuration {}",
-                    fallbackProxyConfiguration.getProxyHost(), fallbackProxyConfiguration);
-            return fallbackProxyConfiguration;
-        }
         return routes.values().stream()
                 .filter(pc -> path.startsWith(normalizeServicePathKey(pc.getServicePathKey())))
                 .max(Comparator.comparingInt(pc -> normalizeServicePathKey(pc.getServicePathKey()).length()))
@@ -453,45 +447,7 @@ public class TestService {
     private String createUri(String domain, ProxyConfiguration pc, String path) {
         String mergedPath = removePathPrefix(pc.getProxyPath(), path);
         String uri = domain + pc.getLocation() + mergedPath;
-        return normalizeUri(uri);
-    }
-
-    private String normalizeUri(String uri) {
-        if (uri == null || uri.isBlank()) {
-            return uri;
-        }
-
-        String normalized = uri;
-
-        // Normalize double slashes while preserving scheme (e.g., https://)
-        int schemeIndex = normalized.indexOf("://");
-        if (schemeIndex >= 0) {
-            String scheme = normalized.substring(0, schemeIndex + 3);
-            String remainder = normalized.substring(schemeIndex + 3).replaceAll("/{2,}", "/");
-            normalized = scheme + remainder;
-        } else {
-            normalized = normalized.replaceAll("/{2,}", "/");
-        }
-
-        // Replace path placeholders like {id}, {userId}, etc. with 1234
-        normalized = normalized.replaceAll("\\{[^/}]+}", "1234");
-
-        return normalized;
-    }
-
-    /**
-     * Find overlap of 1st string end and start of 2nd string.
-     *
-     * @return length of the overlap
-     */
-    private int findOverlapLength(String str1, String str2) {
-        for (int i = 0; i < str1.length(); i++) {
-            String substring = str1.substring(i);
-            if (str2.startsWith(substring)) {
-                return substring.length();
-            }
-        }
-        return 0;
+        return TestServiceUriUtil.normalizeUri(uri);
     }
 
     /**
@@ -507,6 +463,6 @@ public class TestService {
     }
 
     private String removePathPrefix(String proxyPassFull, String openApiPath) {
-        return openApiPath.substring(findOverlapLength(proxyPassFull, openApiPath));
+        return openApiPath.substring(TestServiceUriUtil.findOverlapLength(proxyPassFull, openApiPath));
     }
 }

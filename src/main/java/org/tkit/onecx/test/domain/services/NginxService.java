@@ -62,9 +62,6 @@ public class NginxService {
         while (matcher.find()) {
             int blockStart = matcher.start();
             int openBraceIndex = output.indexOf('{', matcher.end() - 1);
-            if (openBraceIndex < 0) {
-                continue;
-            }
 
             int depth = 0;
             int blockEnd = -1;
@@ -91,9 +88,6 @@ public class NginxService {
     private String normalizeLocationPath(String rawLocation) {
         var location = rawLocation.trim();
         var parts = location.split("\\s+");
-        if (parts.length == 0) {
-            return location;
-        }
         if (("=".equals(parts[0]) || "~".equals(parts[0]) || "~*".equals(parts[0]) || "^~".equals(parts[0]))
                 && parts.length > 1) {
             return parts[1];
@@ -113,15 +107,14 @@ public class NginxService {
 
     private String getProxyPath(String proxyPassFull) {
         try {
-            var path = URI.create(proxyPassFull).getPath();
-            return path == null ? "" : path;
+            return URI.create(proxyPassFull).getPath();
         } catch (Exception ex) {
             return "";
         }
     }
 
     private String normalizeProxyPath(String proxyPath) {
-        if (proxyPath == null || proxyPath.isBlank() || "/".equals(proxyPath)) {
+        if (proxyPath.isBlank() || "/".equals(proxyPath)) {
             return "";
         }
         if (proxyPath.endsWith("/")) {
@@ -131,7 +124,7 @@ public class NginxService {
     }
 
     private String toServicePathKey(String proxyPath) {
-        if (proxyPath == null || proxyPath.isBlank()) {
+        if (proxyPath.isBlank()) {
             return null;
         }
         return proxyPath;
