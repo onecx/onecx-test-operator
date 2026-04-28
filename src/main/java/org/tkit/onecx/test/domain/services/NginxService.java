@@ -12,11 +12,12 @@ import org.tkit.onecx.test.domain.models.ProxyConfiguration;
 @ApplicationScoped
 public class NginxService {
 
-    static final Pattern PATTERN_LOCATION_START = Pattern.compile("\\blocation\\s+[^{}]+\\{");
+    static final Pattern PATTERN_LOCATION_START = Pattern.compile("\\blocation\\s+[^{}]{1,256}\\{");
     static final Pattern PATTERN_LOCATION_PATH = Pattern.compile("(?<=location\\s)(.*?)(?=\\s\\{)");
     static final Pattern PATTERN_PROXY_PASS = Pattern.compile("proxy_pass\\s+([^;\\s]+)");
     static final Pattern PATTERN_LOCATION_PROXY_PASS = Pattern.compile("proxy_pass\\s+(https?://[^/\\s;]+/?)");
 
+    @SuppressWarnings("java:S135")
     public List<ProxyConfiguration> getProxyPassLocation(String output) {
 
         var result = new ArrayList<ProxyConfiguration>();
@@ -45,13 +46,11 @@ public class NginxService {
             if (!hostProxyMatcher.find()) {
                 continue;
             }
-            var proxyPass = hostProxyMatcher.group(1);
-
             var proxyHost = getProxyHost(proxyPassFull);
             var proxyPath = normalizeProxyPath(getProxyPath(proxyPassFull));
             var servicePathKey = toServicePathKey(proxyPath);
 
-            result.add(new ProxyConfiguration(locationPath, proxyPass, proxyPassFull, proxyHost, proxyPath, servicePathKey));
+            result.add(new ProxyConfiguration(locationPath, proxyHost, proxyPath, servicePathKey));
         }
 
         return result;

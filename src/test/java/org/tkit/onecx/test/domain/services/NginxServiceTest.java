@@ -53,9 +53,10 @@ class NginxServiceTest {
 
         var result = nginxService.getProxyPassLocation(config);
 
-        assertThat(result).hasSize(5);
-        assertThat(result).allMatch(pc -> !pc.getLocation().startsWith("@"));
-        assertThat(result).allMatch(pc -> "http://test-bff-app".equals(pc.getProxyHost()));
+        assertThat(result)
+                .hasSize(5)
+                .allMatch(pc -> !pc.getLocation().startsWith("@"))
+                .allMatch(pc -> "http://test-bff-app".equals(pc.getProxyHost()));
 
         assertThat(result)
                 .filteredOn(pc -> "/test-ui/web-resources".equals(pc.getLocation()))
@@ -68,5 +69,39 @@ class NginxServiceTest {
                 .singleElement()
                 .extracting("servicePathKey")
                 .isEqualTo("/api/bff-proxy/p-menu");
+    }
+
+    @Test
+    void getProxyPassLocation_skipsInvalidLocationBlocksForAllContinueBranches() {
+        var config = """
+                server {
+                location /no-proxy {
+                return 200 "ok\\n";
+                }
+                location /bad-path{
+                proxy_pass http://test-bff-app/api/ignored;
+                }
+                location @named {
+                proxy_pass http://test-bff-app/api/ignored;
+                }
+                location /missing-proxy-value {
+                proxy_pass;
+                }
+                location /non-http-upstream {
+                proxy_pass $upstream;
+                }
+                location /valid {
+                proxy_pass http://test-bff-app/api/valid;
+                }
+                }
+                """;
+
+        var result = nginxService.getProxyPassLocation(config);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getLocation()).isEqualTo("/valid");
+        assertThat(result.get(0).getProxyHost()).isEqualTo("http://test-bff-app");
+        assertThat(result.get(0).getProxyPath()).isEqualTo("/api/valid");
+        assertThat(result.get(0).getServicePathKey()).isEqualTo("/api/valid");
     }
 }

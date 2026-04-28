@@ -11,7 +11,6 @@ import org.tkit.onecx.test.domain.clients.QuarkusAdminClient;
 import org.tkit.onecx.test.domain.models.ServiceException;
 
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
-import io.smallrye.openapi.runtime.io.*;
 
 @ApplicationScoped
 public class QuarkusService implements BackendService {

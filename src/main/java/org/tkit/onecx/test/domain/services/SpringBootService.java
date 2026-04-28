@@ -61,7 +61,6 @@ public class SpringBootService implements BackendService {
     public OpenAPI getOpenApi(String url) {
         try {
             var data = getOpenApiSchema(url);
-            log.debug(data);
             return parse(data);
         } catch (Exception ex) {
             throw new ServiceException("Exception parsing or getting openApi schema, url %s".formatted(url), ex);
@@ -101,7 +100,7 @@ public class SpringBootService implements BackendService {
     private String resolveOpenApiPath(SpringBootAdminClient client, String baseUrl) {
 
         // 1. Try the well-known /api-docs/swagger-config endpoint directly (swagger-first setups).
-        var resolved = resolveFromSwaggerConfig(client, baseUrl, "/api-docs/swagger-config");
+        var resolved = resolveFromSwaggerConfig(client, "/api-docs/swagger-config");
         if (resolved != null) {
             return resolved;
         }
@@ -118,7 +117,7 @@ public class SpringBootService implements BackendService {
                 if (configMatcher.find()) {
                     var configUrl = configMatcher.group(1);
                     log.info("Found configUrl in swagger-initializer.js: {}", configUrl);
-                    var resolvedFromInitializer = resolveFromSwaggerConfig(client, baseUrl, configUrl);
+                    var resolvedFromInitializer = resolveFromSwaggerConfig(client, configUrl);
                     if (resolvedFromInitializer != null) {
                         return resolvedFromInitializer;
                     }
@@ -142,7 +141,7 @@ public class SpringBootService implements BackendService {
         }
 
         // 3. Try the well-known springdoc swagger-config endpoint directly.
-        var resolvedFromV3 = resolveFromSwaggerConfig(client, baseUrl, "/v3/api-docs/swagger-config");
+        var resolvedFromV3 = resolveFromSwaggerConfig(client, "/v3/api-docs/swagger-config");
         if (resolvedFromV3 != null) {
             return resolvedFromV3;
         }
@@ -153,7 +152,7 @@ public class SpringBootService implements BackendService {
     }
 
     @SuppressWarnings("unchecked")
-    private String resolveFromSwaggerConfig(SpringBootAdminClient client, String baseUrl, String configUrl) {
+    private String resolveFromSwaggerConfig(SpringBootAdminClient client, String configUrl) {
         try (var response = client.getResource(stripLeadingSlash(configUrl))) {
             if (response.getStatus() != 200) {
                 return null;

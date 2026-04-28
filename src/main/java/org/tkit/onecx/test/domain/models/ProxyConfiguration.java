@@ -14,11 +14,7 @@ public class ProxyConfiguration {
     String proxyPath;
     String servicePathKey;
 
-    public ProxyConfiguration(String location, String proxyPass, String proxyPassFull) {
-        this(location, proxyPass, proxyPassFull, null, null, null);
-    }
-
-    public ProxyConfiguration(String location, String proxyPass, String proxyPassFull, String proxyHost, String proxyPath,
+    public ProxyConfiguration(String location, String proxyHost, String proxyPath,
             String servicePathKey) {
         this.location = location;
         this.proxyHost = proxyHost;
