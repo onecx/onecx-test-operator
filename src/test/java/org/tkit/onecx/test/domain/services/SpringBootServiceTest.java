@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
+import java.util.Map;
+
 import jakarta.inject.Inject;
 import jakarta.ws.rs.HttpMethod;
 import jakarta.ws.rs.core.Response;
@@ -12,7 +14,9 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.ConfigProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.mockserver.model.MediaType;
+import org.tkit.onecx.test.domain.clients.SpringBootAdminClient;
 import org.tkit.onecx.test.domain.models.ServiceException;
 import org.tkit.onecx.test.operator.AbstractTest;
 
@@ -507,26 +511,19 @@ class SpringBootServiceTest extends AbstractTest {
 
     @Test
     void resolveOpenApiPath_catchesExceptionWhenFetchingInitializer_withoutReflection() {
-        var mockUrl = mockUrl();
+        // Unreachable host triggers exceptions in initializer fetch path (and falls back).
+        var unreachableUrl = "http://unknown-host.invalid";
+        var result = springBootService.resolveOpenApiPath(unreachableUrl);
 
-        addExpectation(mockServerClient
-                .when(request().withPath("/api-docs/swagger-config").withMethod(HttpMethod.GET))
-                .respond(response().withStatusCode(Response.Status.NOT_FOUND.getStatusCode())));
+        assertThat(result).isEqualTo("v3/api-docs");
+    }
 
-        // Simulate transport failure on initializer request to drive catch(Exception ex).
-        addExpectation(mockServerClient
-                .when(request().withPath("/swagger-ui/swagger-initializer.js").withMethod(HttpMethod.GET))
-                .respond(response()
-                        .withStatusCode(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode())));
+    @Test
+    void resolveOpenApiPath_catchesExceptionWhenSwaggerConfigEndpointIsUnreachable_withoutReflection() {
+        // This drives resolveFromSwaggerConfig catch(Exception ex) via transport failure in getResource(...).
+        var unreachableUrl = "http://unknown-host.invalid";
 
-        addExpectation(mockServerClient
-                .when(request().withPath("/v3/api-docs/swagger-config").withMethod(HttpMethod.GET))
-                .respond(response()
-                        .withStatusCode(Response.Status.OK.getStatusCode())
-                        .withContentType(MediaType.APPLICATION_JSON)
-                        .withBody("{\"url\":\"/v3/api-docs\"}")));
-
-        var result = springBootService.resolveOpenApiPath(mockUrl);
+        var result = springBootService.resolveOpenApiPath(unreachableUrl);
 
         assertThat(result).isEqualTo("v3/api-docs");
     }
@@ -619,5 +616,277 @@ class SpringBootServiceTest extends AbstractTest {
         var unreachableUrl = "http://unknown-host.invalid";
         var catchResult = springBootService.resolveOpenApiPath(unreachableUrl);
         assertThat(catchResult).isEqualTo("v3/api-docs");
+    }
+
+    @Test
+    void resolveOpenApiPath_catchesExceptionWhenGetSwaggerInitializerThrows_withoutReflection() {
+        SpringBootAdminClient client = new SpringBootAdminClient() {
+            @Override
+            public Response getSwaggerUi() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getSwaggerInitializer() {
+                throw new RuntimeException("initializer call failed");
+            }
+
+            @Override
+            public Response getSwaggerConfig() {
+                return Response.status(Response.Status.NOT_FOUND).build();
+            }
+
+            @Override
+            public Response getResource(String path) {
+                return Response.status(Response.Status.NOT_FOUND).build();
+            }
+        };
+
+        var result = springBootService.resolveOpenApiPath(client, "http://base-url");
+
+        assertThat(result).isEqualTo("v3/api-docs");
+    }
+
+    @Test
+    void resolveOpenApiPath_catchesExceptionWhenInitializerReadEntityThrows_withoutReflection() {
+        Response initializerResponse = Mockito.mock(Response.class);
+        Mockito.when(initializerResponse.getStatus()).thenReturn(Response.Status.OK.getStatusCode());
+        Mockito.when(initializerResponse.readEntity(String.class)).thenThrow(new RuntimeException("read failed"));
+
+        SpringBootAdminClient client = new SpringBootAdminClient() {
+            @Override
+            public Response getSwaggerUi() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getSwaggerInitializer() {
+                return initializerResponse;
+            }
+
+            @Override
+            public Response getSwaggerConfig() {
+                return Response.status(Response.Status.NOT_FOUND).build();
+            }
+
+            @Override
+            public Response getResource(String path) {
+                return Response.status(Response.Status.NOT_FOUND).build();
+            }
+        };
+
+        var result = springBootService.resolveOpenApiPath(client, "http://base-url");
+
+        assertThat(result).isEqualTo("v3/api-docs");
+    }
+
+    @Test
+    void resolveOpenApiPath_catchesExceptionWhenInitializerReadEntityAndCloseThrow_withoutReflection() {
+        Response initializerResponse = Mockito.mock(Response.class);
+        Mockito.when(initializerResponse.getStatus()).thenReturn(Response.Status.OK.getStatusCode());
+        Mockito.when(initializerResponse.readEntity(String.class)).thenThrow(new RuntimeException("read failed"));
+        Mockito.doThrow(new RuntimeException("close failed")).when(initializerResponse).close();
+
+        SpringBootAdminClient client = new SpringBootAdminClient() {
+            @Override
+            public Response getSwaggerUi() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getSwaggerInitializer() {
+                return initializerResponse;
+            }
+
+            @Override
+            public Response getSwaggerConfig() {
+                return Response.status(Response.Status.NOT_FOUND).build();
+            }
+
+            @Override
+            public Response getResource(String path) {
+                return Response.status(Response.Status.NOT_FOUND).build();
+            }
+        };
+
+        var result = springBootService.resolveOpenApiPath(client, "http://base-url");
+
+        assertThat(result).isEqualTo("v3/api-docs");
+        Mockito.verify(initializerResponse).close();
+    }
+
+    @Test
+    void resolveFromSwaggerConfig_catchesExceptionWhenGetResourceThrows_withoutReflection() {
+        SpringBootAdminClient client = new SpringBootAdminClient() {
+            @Override
+            public Response getSwaggerUi() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getSwaggerInitializer() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getSwaggerConfig() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getResource(String path) {
+                throw new RuntimeException("resource failed");
+            }
+        };
+
+        var result = springBootService.resolveFromSwaggerConfig(client, "/broken/swagger-config");
+
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void resolveFromSwaggerConfig_catchesExceptionWhenReadEntityThrows_withoutReflection() {
+        Response configResponse = Mockito.mock(Response.class);
+        Mockito.when(configResponse.getStatus()).thenReturn(Response.Status.OK.getStatusCode());
+        Mockito.when(configResponse.readEntity(String.class)).thenThrow(new RuntimeException("entity failed"));
+
+        SpringBootAdminClient client = new SpringBootAdminClient() {
+            @Override
+            public Response getSwaggerUi() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getSwaggerInitializer() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getSwaggerConfig() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getResource(String path) {
+                return configResponse;
+            }
+        };
+
+        var result = springBootService.resolveFromSwaggerConfig(client, "/broken/swagger-config");
+
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void resolveFromSwaggerConfig_closesResponseOnSuccess_withoutReflection() {
+        Response configResponse = Mockito.mock(Response.class);
+        Mockito.when(configResponse.getStatus()).thenReturn(Response.Status.OK.getStatusCode());
+        Mockito.when(configResponse.readEntity(String.class)).thenReturn("{\"url\":\"/v3/api-docs\"}");
+
+        SpringBootAdminClient client = new SpringBootAdminClient() {
+            @Override
+            public Response getSwaggerUi() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getSwaggerInitializer() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getSwaggerConfig() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getResource(String path) {
+                return configResponse;
+            }
+        };
+
+        var result = springBootService.resolveFromSwaggerConfig(client, "/working/swagger-config");
+
+        assertThat(result).isEqualTo("v3/api-docs");
+        Mockito.verify(configResponse).close();
+    }
+
+    @Test
+    void resolveFromSwaggerConfig_keepsResolvedValueWhenCloseThrows_withoutReflection() {
+        Response configResponse = Mockito.mock(Response.class);
+        Mockito.when(configResponse.getStatus()).thenReturn(Response.Status.OK.getStatusCode());
+        Mockito.when(configResponse.readEntity(String.class)).thenReturn("{\"url\":\"/v3/api-docs\"}");
+        Mockito.doThrow(new RuntimeException("close failed")).when(configResponse).close();
+
+        SpringBootAdminClient client = new SpringBootAdminClient() {
+            @Override
+            public Response getSwaggerUi() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getSwaggerInitializer() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getSwaggerConfig() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getResource(String path) {
+                return configResponse;
+            }
+        };
+
+        var result = springBootService.resolveFromSwaggerConfig(client, "/working/swagger-config");
+
+        assertThat(result).isEqualTo("v3/api-docs");
+        Mockito.verify(configResponse).close();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void resolveFromSwaggerConfig_catchesExceptionWhenObjectMapperThrows_withoutReflection() throws Exception {
+        Response configResponse = Mockito.mock(Response.class);
+        Mockito.when(configResponse.getStatus()).thenReturn(Response.Status.OK.getStatusCode());
+        Mockito.when(configResponse.readEntity(String.class)).thenReturn("{}");
+
+        SpringBootAdminClient client = new SpringBootAdminClient() {
+            @Override
+            public Response getSwaggerUi() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getSwaggerInitializer() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getSwaggerConfig() {
+                return Response.ok().build();
+            }
+
+            @Override
+            public Response getResource(String path) {
+                return configResponse;
+            }
+        };
+
+        var originalMapper = springBootService.objectMapper;
+        try {
+            var failingMapper = Mockito.mock(com.fasterxml.jackson.databind.ObjectMapper.class);
+            Mockito.when(failingMapper.readValue("{}", Map.class))
+                    .thenThrow(new RuntimeException("mapper failed"));
+            springBootService.objectMapper = failingMapper;
+
+            var result = springBootService.resolveFromSwaggerConfig(client, "/broken/swagger-config");
+
+            assertThat(result).isNull();
+        } finally {
+            springBootService.objectMapper = originalMapper;
+        }
     }
 }

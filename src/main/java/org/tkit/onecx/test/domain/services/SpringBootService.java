@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.core.Response;
 
 import org.eclipse.microprofile.openapi.models.OpenAPI;
 import org.slf4j.Logger;
@@ -96,8 +97,8 @@ public class SpringBootService implements BackendService {
         return resolveOpenApiPath(client, url);
     }
 
-    @SuppressWarnings("unchecked")
-    private String resolveOpenApiPath(SpringBootAdminClient client, String baseUrl) {
+    // Package scope for deterministic tests without reflection.
+    String resolveOpenApiPath(SpringBootAdminClient client, String baseUrl) {
 
         // 1. Try the well-known /api-docs/swagger-config endpoint directly (swagger-first setups).
         var resolved = resolveFromSwaggerConfig(client, "/api-docs/swagger-config");
@@ -106,38 +107,9 @@ public class SpringBootService implements BackendService {
         }
 
         // 2. Fetch swagger-initializer.js to find the configUrl (or a direct url as secondary).
-        String directUrlFromInitializer = null;
-        try (var response = client.getSwaggerInitializer()) {
-            if (response.getStatus() == 200) {
-                var js = response.readEntity(String.class);
-                log.info("Fetched swagger-initializer.js from {} ({} )", baseUrl, js);
-
-                // Primary: configUrl points to the swagger-config JSON endpoint
-                var configMatcher = INITIALIZER_CONFIG_URL_PATTERN.matcher(js);
-                if (configMatcher.find()) {
-                    var configUrl = configMatcher.group(1);
-                    log.info("Found configUrl in swagger-initializer.js: {}", configUrl);
-                    var resolvedFromInitializer = resolveFromSwaggerConfig(client, configUrl);
-                    if (resolvedFromInitializer != null) {
-                        return resolvedFromInitializer;
-                    }
-                } else {
-                    log.info("No configUrl found in swagger-initializer.js for {}", baseUrl);
-                }
-
-                // Secondary: some setups embed url directly in the initializer
-                var urlMatcher = INITIALIZER_URL_PATTERN.matcher(js);
-                if (urlMatcher.find()) {
-                    directUrlFromInitializer = urlMatcher.group(1);
-                }
-            }
-        } catch (Exception ex) {
-            log.debug("Could not fetch swagger-initializer.js for {}: {}", baseUrl, ex.getMessage());
-        }
-
-        if (directUrlFromInitializer != null) {
-            log.info("Resolved OpenAPI path from swagger-initializer.js (direct url): {}", directUrlFromInitializer);
-            return stripLeadingSlash(directUrlFromInitializer);
+        var resolvedFromInitializer = resolveFromInitializer(client, baseUrl);
+        if (resolvedFromInitializer != null) {
+            return resolvedFromInitializer;
         }
 
         // 3. Try the well-known springdoc swagger-config endpoint directly.
@@ -151,9 +123,49 @@ public class SpringBootService implements BackendService {
         return FALLBACK_OPENAPI_PATH;
     }
 
+    private String resolveFromInitializer(SpringBootAdminClient client, String baseUrl) {
+        Response response = null;
+        try {
+            response = client.getSwaggerInitializer();
+            if (response.getStatus() != 200) {
+                return null;
+            }
+
+            var js = response.readEntity(String.class);
+            log.info("Fetched swagger-initializer.js from {} ({} )", baseUrl, js);
+
+            var configMatcher = INITIALIZER_CONFIG_URL_PATTERN.matcher(js);
+            if (configMatcher.find()) {
+                var configUrl = configMatcher.group(1);
+                log.info("Found configUrl in swagger-initializer.js: {}", configUrl);
+                var resolvedFromInitializer = resolveFromSwaggerConfig(client, configUrl);
+                if (resolvedFromInitializer != null) {
+                    return resolvedFromInitializer;
+                }
+            } else {
+                log.info("No configUrl found in swagger-initializer.js for {}", baseUrl);
+            }
+
+            var urlMatcher = INITIALIZER_URL_PATTERN.matcher(js);
+            if (urlMatcher.find()) {
+                var directUrlFromInitializer = stripLeadingSlash(urlMatcher.group(1));
+                log.info("Resolved OpenAPI path from swagger-initializer.js (direct url): {}", directUrlFromInitializer);
+                return directUrlFromInitializer;
+            }
+        } catch (Exception ex) {
+            log.info("Could not fetch swagger-initializer.js for {}: {}", baseUrl, ex.getMessage());
+        } finally {
+            closeResponseQuietly(response, "swagger-initializer.js", baseUrl);
+        }
+        return null;
+    }
+
     @SuppressWarnings("unchecked")
-    private String resolveFromSwaggerConfig(SpringBootAdminClient client, String configUrl) {
-        try (var response = client.getResource(stripLeadingSlash(configUrl))) {
+    // Package scope for deterministic tests without reflection.
+    String resolveFromSwaggerConfig(SpringBootAdminClient client, String configUrl) {
+        Response response = null;
+        try {
+            response = client.getResource(stripLeadingSlash(configUrl));
             if (response.getStatus() != 200) {
                 return null;
             }
@@ -174,12 +186,25 @@ public class SpringBootService implements BackendService {
             }
         } catch (Exception ex) {
             log.debug("Could not resolve OpenAPI path from {}: {}", configUrl, ex.getMessage());
+        } finally {
+            closeResponseQuietly(response, "swagger-config", configUrl);
         }
         return null;
     }
 
     private static String stripLeadingSlash(String path) {
         return path.startsWith("/") ? path.substring(1) : path;
+    }
+
+    private void closeResponseQuietly(Response response, String resourceName, String context) {
+        if (response == null) {
+            return;
+        }
+        try {
+            response.close();
+        } catch (Exception ex) {
+            log.debug("Could not close {} response for {}: {}", resourceName, context, ex.getMessage());
+        }
     }
 
     private SpringBootAdminClient createClient(String url) {
