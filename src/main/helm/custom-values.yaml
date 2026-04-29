@@ -1,0 +1,39 @@
+app:
+  serviceAccount:
+    enabled: true
+  name: operator
+  image:
+    registry: registry.localhost:5000
+    repository: onecx-test-operator
+    tag: local
+    pull: Always
+  operator:
+    secretgenerator:
+      enabled: false
+    keycloak:
+      client:
+        enabled: true
+        spec:
+          kcConfig:
+            clientId: onecx-test-operator
+            defaultClientScopes: [ ocx-pm:read ]
+        secret:
+          generator:
+            enabled: false
+        password: local-secret
+  keycloak:
+    url: http://keycloak/realms/GigabitHub
+    realm: GigabitHub
+  envCustom:
+    - name: QUARKUS_OIDC_CLIENT_ID
+      value: onecx-test-operator
+    - name: QUARKUS_OIDC_UI_AUTH_SERVER_URL
+      value: http://keycloak/realms/GigabitHub
+    - name: QUARKUS_OIDC_AUTH_SERVER_URL
+      value: http://keycloak/realms/GigabitHub
+    - name: KUBERNETES_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: QUARKUS_HTTP_AUTH_PERMISSION_DEFAULT_POLICY
+      value: permit

@@ -2,10 +2,12 @@ package org.tkit.onecx.test.domain.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
 import java.util.Map;
+import java.util.stream.Stream;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.HttpMethod;
@@ -14,6 +16,9 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.ConfigProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 import org.mockserver.model.MediaType;
 import org.tkit.onecx.test.domain.clients.SpringBootAdminClient;
@@ -23,6 +28,7 @@ import org.tkit.onecx.test.operator.AbstractTest;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest
+@SuppressWarnings(" java:S125")
 class SpringBootServiceTest extends AbstractTest {
 
     @Inject
@@ -33,10 +39,11 @@ class SpringBootServiceTest extends AbstractTest {
         clearExpectation(mockServerClient);
     }
 
-    // ─── resolveOpenApiPath: strategy 1 via urls[0].url ──────────────────────
+    // ─── resolveOpenApiPath: strategy 1 via /api-docs/swagger-config ──────────
 
-    @Test
-    void resolveOpenApiPath_resolvedFromApiDocsSwaggerConfigViaUrlsList() {
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("apiDocsSwaggerConfigCases")
+    void resolveOpenApiPath_resolvedFromApiDocsSwaggerConfig(String testName, String responseBody, String expectedPath) {
         var mockUrl = mockUrl();
 
         addExpectation(mockServerClient
@@ -44,35 +51,19 @@ class SpringBootServiceTest extends AbstractTest {
                 .respond(response()
                         .withStatusCode(Response.Status.OK.getStatusCode())
                         .withContentType(MediaType.APPLICATION_JSON)
-                        .withBody("{\"urls\":[{\"url\":\"/v3/api-docs/my-spec.yaml\"}]}")));
+                        .withBody(responseBody)));
 
         var result = springBootService.resolveOpenApiPath(mockUrl);
 
-        assertThat(result).isEqualTo("v3/api-docs/my-spec.yaml");
-    }
-
-    // ─── resolveOpenApiPath: strategy 1 via url field ────────────────────────
-
-    @Test
-    void resolveOpenApiPath_resolvedFromApiDocsSwaggerConfigViaUrlField() {
-        var mockUrl = mockUrl();
-
-        addExpectation(mockServerClient
-                .when(request().withPath("/api-docs/swagger-config").withMethod(HttpMethod.GET))
-                .respond(response()
-                        .withStatusCode(Response.Status.OK.getStatusCode())
-                        .withContentType(MediaType.APPLICATION_JSON)
-                        .withBody("{\"url\":\"/v3/api-docs\"}")));
-
-        var result = springBootService.resolveOpenApiPath(mockUrl);
-
-        assertThat(result).isEqualTo("v3/api-docs");
+        assertThat(result).isEqualTo(expectedPath);
     }
 
     // ─── resolveOpenApiPath: strategy 2a via swagger-initializer.js → configUrl ──
 
-    @Test
-    void resolveOpenApiPath_resolvedFromSwaggerInitializerViaConfigUrl() {
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("swaggerInitializerConfigUrlCases")
+    void resolveOpenApiPath_resolvedFromSwaggerInitializerViaConfigUrl(String testName, String initializerBody,
+            String configUrlPath, String configUrlBody, String expectedPath) {
         var mockUrl = mockUrl();
 
         // Strategy 1 fails
@@ -80,54 +71,36 @@ class SpringBootServiceTest extends AbstractTest {
                 .when(request().withPath("/api-docs/swagger-config").withMethod(HttpMethod.GET))
                 .respond(response().withStatusCode(Response.Status.NOT_FOUND.getStatusCode())));
 
-        // Strategy 2: initializer carries configUrl
+        // Strategy 2: initializer carries configUrl or has empty bundle
         addExpectation(mockServerClient
                 .when(request().withPath("/swagger-ui/swagger-initializer.js").withMethod(HttpMethod.GET))
                 .respond(response()
                         .withStatusCode(Response.Status.OK.getStatusCode())
-                        .withBody(
-                                "window.onload = function() { SwaggerUIBundle({ configUrl: \"/v3/api-docs/swagger-config\" }); }")));
+                        .withBody(initializerBody)));
 
-        // configUrl resolves to actual spec
-        addExpectation(mockServerClient
-                .when(request().withPath("/v3/api-docs/swagger-config").withMethod(HttpMethod.GET))
-                .respond(response()
-                        .withStatusCode(Response.Status.OK.getStatusCode())
-                        .withContentType(MediaType.APPLICATION_JSON)
-                        .withBody("{\"url\":\"/v3/api-docs\"}")));
+        if (configUrlPath != null) {
+            // configUrl resolves to actual spec
+            addExpectation(mockServerClient
+                    .when(request().withPath(configUrlPath).withMethod(HttpMethod.GET))
+                    .respond(response()
+                            .withStatusCode(Response.Status.OK.getStatusCode())
+                            .withContentType(MediaType.APPLICATION_JSON)
+                            .withBody(configUrlBody)));
+        }
 
-        var result = springBootService.resolveOpenApiPath(mockUrl);
-
-        assertThat(result).isEqualTo("v3/api-docs");
-    }
-
-    // ─── Coverage: Line 111 - swagger-initializer.js returns non-200 status ─────
-
-    @Test
-    void resolveOpenApiPath_skipsInitializerWhenStatusNot200() {
-        var mockUrl = mockUrl();
-
-        // Strategy 1 fails
-        addExpectation(mockServerClient
-                .when(request().withPath("/api-docs/swagger-config").withMethod(HttpMethod.GET))
-                .respond(response().withStatusCode(Response.Status.NOT_FOUND.getStatusCode())));
-
-        // Strategy 2: initializer returns non-200 status (e.g., 404)
-        addExpectation(mockServerClient
-                .when(request().withPath("/swagger-ui/swagger-initializer.js").withMethod(HttpMethod.GET))
-                .respond(response().withStatusCode(Response.Status.NOT_FOUND.getStatusCode())));
-
-        // Skips strategy 2, proceeds to strategy 3
-        addExpectation(mockServerClient
-                .when(request().withPath("/v3/api-docs/swagger-config").withMethod(HttpMethod.GET))
-                .respond(response()
-                        .withStatusCode(Response.Status.OK.getStatusCode())
-                        .withContentType(MediaType.APPLICATION_JSON)
-                        .withBody("{\"url\":\"/v3/api-docs\"}")));
+        // Falls back to strategy 3 if no configUrl or direct url patterns found
+        if (configUrlPath == null) {
+            addExpectation(mockServerClient
+                    .when(request().withPath("/v3/api-docs/swagger-config").withMethod(HttpMethod.GET))
+                    .respond(response()
+                            .withStatusCode(Response.Status.OK.getStatusCode())
+                            .withContentType(MediaType.APPLICATION_JSON)
+                            .withBody(configUrlBody)));
+        }
 
         var result = springBootService.resolveOpenApiPath(mockUrl);
 
-        assertThat(result).isEqualTo("v3/api-docs");
+        assertThat(result).isEqualTo(expectedPath);
     }
 
     @Test
@@ -154,8 +127,6 @@ class SpringBootServiceTest extends AbstractTest {
 
         assertThat(result).isEqualTo("v3/api-docs");
     }
-
-    // ─── Coverage: Line 121 - resolveFromInitializer returns null ───────────────
 
     @Test
     void resolveOpenApiPath_skipsInitializerConfigUrlWhenReturnsNull() {
@@ -218,37 +189,6 @@ class SpringBootServiceTest extends AbstractTest {
         assertThat(result).isEqualTo("custom/api-docs.yaml");
     }
 
-    // ─── Coverage: Line 129-131 - no direct URL pattern found in initializer ────
-
-    @Test
-    void resolveOpenApiPath_skipsDirectUrlWhenPatternNotFoundInInitializer() {
-        var mockUrl = mockUrl();
-
-        // Strategy 1 fails
-        addExpectation(mockServerClient
-                .when(request().withPath("/api-docs/swagger-config").withMethod(HttpMethod.GET))
-                .respond(response().withStatusCode(Response.Status.NOT_FOUND.getStatusCode())));
-
-        // Strategy 2b: initializer has no configUrl and no direct url pattern
-        addExpectation(mockServerClient
-                .when(request().withPath("/swagger-ui/swagger-initializer.js").withMethod(HttpMethod.GET))
-                .respond(response()
-                        .withStatusCode(Response.Status.OK.getStatusCode())
-                        .withBody("window.onload = function() { SwaggerUIBundle({ }); }")));
-
-        // Falls back to strategy 3 since no patterns were found
-        addExpectation(mockServerClient
-                .when(request().withPath("/v3/api-docs/swagger-config").withMethod(HttpMethod.GET))
-                .respond(response()
-                        .withStatusCode(Response.Status.OK.getStatusCode())
-                        .withContentType(MediaType.APPLICATION_JSON)
-                        .withBody("{\"url\":\"/v3/api-docs\"}")));
-
-        var result = springBootService.resolveOpenApiPath(mockUrl);
-
-        assertThat(result).isEqualTo("v3/api-docs");
-    }
-
     // ─── resolveOpenApiPath: strategy 3 via /v3/api-docs/swagger-config ─────
 
     @Test
@@ -276,8 +216,6 @@ class SpringBootServiceTest extends AbstractTest {
 
         assertThat(result).isEqualTo("v3/api-docs");
     }
-
-    // ─── Coverage: Line 157-158 - swagger config endpoint returns non-200 ────
 
     @Test
     void resolveOpenApiPath_skipsSwaggerConfigWhenStatusNot200() {
@@ -391,6 +329,48 @@ class SpringBootServiceTest extends AbstractTest {
         return ConfigProvider.getConfig().getValue("quarkus.mockserver.endpoint", String.class);
     }
 
+    private static Stream<Arguments> apiDocsSwaggerConfigCases() {
+        return Stream.of(
+                arguments(
+                        "urls[0].url is used when present",
+                        "{\"urls\":[{\"url\":\"/v3/api-docs/my-spec.yaml\"}]}",
+                        "v3/api-docs/my-spec.yaml"),
+                arguments(
+                        "url field is used when urls is absent",
+                        "{\"url\":\"/v3/api-docs\"}",
+                        "v3/api-docs"),
+                arguments(
+                        "url field is used when urls is empty",
+                        "{\"urls\":[],\"url\":\"/v3/api-docs\"}",
+                        "v3/api-docs"),
+                arguments(
+                        "url field is used when first urls entry has no url",
+                        "{\"urls\":[{}],\"url\":\"/v3/api-docs\"}",
+                        "v3/api-docs"));
+    }
+
+    private static Stream<Arguments> swaggerInitializerConfigUrlCases() {
+        return Stream.of(
+                arguments(
+                        "configUrl with leading slash resolves to spec",
+                        "window.onload = function() { SwaggerUIBundle({ configUrl: \"/v3/api-docs/swagger-config\" }); }",
+                        "/v3/api-docs/swagger-config",
+                        "{\"url\":\"/v3/api-docs\"}",
+                        "v3/api-docs"),
+                arguments(
+                        "configUrl without leading slash resolves to spec",
+                        "window.onload = function() { SwaggerUIBundle({ configUrl: \"custom/swagger-config\" }); }",
+                        "/custom/swagger-config",
+                        "{\"url\":\"v3/api-docs\"}",
+                        "v3/api-docs"),
+                arguments(
+                        "empty initializer falls back to strategy 3",
+                        "window.onload = function() { SwaggerUIBundle({ }); }",
+                        null,
+                        "{\"url\":\"/v3/api-docs\"}",
+                        "v3/api-docs"));
+    }
+
     @Test
     void resolveOpenApiPath_skipsInitializerConfigUrlWhenStatusNot200() {
         var mockUrl = mockUrl();
@@ -416,38 +396,6 @@ class SpringBootServiceTest extends AbstractTest {
                         .withStatusCode(Response.Status.OK.getStatusCode())
                         .withContentType(MediaType.APPLICATION_JSON)
                         .withBody("{\"url\":\"/v3/api-docs\"}")));
-
-        var result = springBootService.resolveOpenApiPath(mockUrl);
-
-        assertThat(result).isEqualTo("v3/api-docs");
-    }
-
-    @Test
-    void resolveOpenApiPath_resolvedFromApiDocsSwaggerConfigWhenUrlsEmptyAndUrlPresent() {
-        var mockUrl = mockUrl();
-
-        addExpectation(mockServerClient
-                .when(request().withPath("/api-docs/swagger-config").withMethod(HttpMethod.GET))
-                .respond(response()
-                        .withStatusCode(Response.Status.OK.getStatusCode())
-                        .withContentType(MediaType.APPLICATION_JSON)
-                        .withBody("{\"urls\":[],\"url\":\"/v3/api-docs\"}")));
-
-        var result = springBootService.resolveOpenApiPath(mockUrl);
-
-        assertThat(result).isEqualTo("v3/api-docs");
-    }
-
-    @Test
-    void resolveOpenApiPath_resolvedFromApiDocsSwaggerConfigWhenFirstUrlIsNull() {
-        var mockUrl = mockUrl();
-
-        addExpectation(mockServerClient
-                .when(request().withPath("/api-docs/swagger-config").withMethod(HttpMethod.GET))
-                .respond(response()
-                        .withStatusCode(Response.Status.OK.getStatusCode())
-                        .withContentType(MediaType.APPLICATION_JSON)
-                        .withBody("{\"urls\":[{}],\"url\":\"/v3/api-docs\"}")));
 
         var result = springBootService.resolveOpenApiPath(mockUrl);
 
@@ -483,46 +431,9 @@ class SpringBootServiceTest extends AbstractTest {
     }
 
     @Test
-    void resolveOpenApiPath_resolvedFromInitializerConfigUrlWithoutLeadingSlash() {
-        var mockUrl = mockUrl();
-
-        addExpectation(mockServerClient
-                .when(request().withPath("/api-docs/swagger-config").withMethod(HttpMethod.GET))
-                .respond(response().withStatusCode(Response.Status.NOT_FOUND.getStatusCode())));
-
-        addExpectation(mockServerClient
-                .when(request().withPath("/swagger-ui/swagger-initializer.js").withMethod(HttpMethod.GET))
-                .respond(response()
-                        .withStatusCode(Response.Status.OK.getStatusCode())
-                        .withBody(
-                                "window.onload = function() { SwaggerUIBundle({ configUrl: \"custom/swagger-config\" }); }")));
-
-        addExpectation(mockServerClient
-                .when(request().withPath("/custom/swagger-config").withMethod(HttpMethod.GET))
-                .respond(response()
-                        .withStatusCode(Response.Status.OK.getStatusCode())
-                        .withContentType(MediaType.APPLICATION_JSON)
-                        .withBody("{\"url\":\"v3/api-docs\"}")));
-
-        var result = springBootService.resolveOpenApiPath(mockUrl);
-
-        assertThat(result).isEqualTo("v3/api-docs");
-    }
-
-    @Test
     void resolveOpenApiPath_catchesExceptionWhenFetchingInitializer_withoutReflection() {
         // Unreachable host triggers exceptions in initializer fetch path (and falls back).
         var unreachableUrl = "http://unknown-host.invalid";
-        var result = springBootService.resolveOpenApiPath(unreachableUrl);
-
-        assertThat(result).isEqualTo("v3/api-docs");
-    }
-
-    @Test
-    void resolveOpenApiPath_catchesExceptionWhenSwaggerConfigEndpointIsUnreachable_withoutReflection() {
-        // This drives resolveFromSwaggerConfig catch(Exception ex) via transport failure in getResource(...).
-        var unreachableUrl = "http://unknown-host.invalid";
-
         var result = springBootService.resolveOpenApiPath(unreachableUrl);
 
         assertThat(result).isEqualTo("v3/api-docs");

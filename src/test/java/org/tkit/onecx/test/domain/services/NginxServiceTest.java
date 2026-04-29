@@ -197,13 +197,13 @@ class NginxServiceTest {
         assertThat(result).filteredOn(pc -> "=".equals(pc.getLocation())).singleElement()
                 .satisfies(pc -> {
                     assertThat(pc.getProxyHost()).isEqualTo("http://test-bff-app");
-                    assertThat(pc.getProxyPath()).isEqualTo("");
+                    assertThat(pc.getProxyPath()).isEmpty();
                     assertThat(pc.getServicePathKey()).isNull();
                 });
         assertThat(result).filteredOn(pc -> "~".equals(pc.getLocation())).singleElement()
                 .satisfies(pc -> {
                     assertThat(pc.getProxyHost()).isEqualTo("https://test-bff-app");
-                    assertThat(pc.getProxyPath()).isEqualTo("");
+                    assertThat(pc.getProxyPath()).isEmpty();
                     assertThat(pc.getServicePathKey()).isNull();
                 });
         assertThat(result).filteredOn(pc -> "~*".equals(pc.getLocation())).singleElement()
@@ -215,7 +215,7 @@ class NginxServiceTest {
         assertThat(result).filteredOn(pc -> "^~".equals(pc.getLocation())).singleElement()
                 .satisfies(pc -> {
                     assertThat(pc.getProxyHost()).isEqualTo("http://test-bff-app");
-                    assertThat(pc.getProxyPath()).isEqualTo("");
+                    assertThat(pc.getProxyPath()).isEmpty();
                     assertThat(pc.getServicePathKey()).isNull();
                 });
     }
@@ -238,7 +238,7 @@ class NginxServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getLocation()).isEqualTo("/badhost");
         assertThat(result.get(0).getProxyHost()).isNull();
-        assertThat(result.get(0).getProxyPath()).isEqualTo("");
+        assertThat(result.get(0).getProxyPath()).isEmpty();
         assertThat(result.get(0).getServicePathKey()).isNull();
     }
 }

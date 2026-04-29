@@ -56,6 +56,7 @@ import io.quarkus.test.kubernetes.client.WithKubernetesTestServer;
 @WithKubernetesTestServer
 @TestHTTPEndpoint(TestRestController.class)
 @GenerateKeycloakClient(clientName = "admin", scopes = { "ocx-ts-sec:exec" })
+@SuppressWarnings(" java:S125")
 class BaseRestControllerTest extends AbstractTest {
 
     // Why?: Mock, KubernetesMockServer does not support Vertx WebSocket
