@@ -28,7 +28,7 @@ import org.tkit.onecx.test.operator.AbstractTest;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest
-@SuppressWarnings(" java:S125")
+@SuppressWarnings("java:S125")
 class SpringBootServiceTest extends AbstractTest {
 
     @Inject
