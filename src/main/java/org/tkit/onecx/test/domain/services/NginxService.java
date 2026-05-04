@@ -1,5 +1,6 @@
 package org.tkit.onecx.test.domain.services;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -11,34 +12,121 @@ import org.tkit.onecx.test.domain.models.ProxyConfiguration;
 @ApplicationScoped
 public class NginxService {
 
-    @SuppressWarnings({ "java:S5998", "java:S5843" })
-    static final Pattern PATTERN_LOCATION = Pattern
-            .compile("location\\s+[^\\{]+\\{(?:[^{}]*\\{[^{}]*\\}[^{}]*|[^{}])*\\s*proxy_pass\\s+[^\\}]*\\;[^}]*\\}");
+    static final Pattern PATTERN_LOCATION_START = Pattern.compile("\\blocation\\s+[^{}]{1,256}\\{");
     static final Pattern PATTERN_LOCATION_PATH = Pattern.compile("(?<=location\\s)(.*?)(?=\\s\\{)");
-    static final Pattern PATTERN_LOCATION_PROXY_PASS = Pattern.compile("(?<=proxy_pass\\s+)(https?:\\/\\/[^\\/\\s;]+\\/?)");
-    static final Pattern PATTERN_LOCATION_PROXY_PASS_FULL = Pattern.compile("(?<=proxy_pass\\s+)(https?:\\/\\/+[^;]+)");
+    static final Pattern PATTERN_PROXY_PASS = Pattern.compile("proxy_pass\\s+([^;\\s]+)");
+    static final Pattern PATTERN_LOCATION_PROXY_PASS = Pattern.compile("proxy_pass\\s+(https?://[^/\\s;]+/?)");
 
+    @SuppressWarnings("java:S135")
     public List<ProxyConfiguration> getProxyPassLocation(String output) {
 
         var result = new ArrayList<ProxyConfiguration>();
 
-        var matcher = PATTERN_LOCATION.matcher(output);
-        while (matcher.find()) {
-            var location = matcher.group(0);
+        for (String location : extractLocationBlocks(output)) {
+            if (!location.contains("proxy_pass")) {
+                continue;
+            }
 
-            var pm = PATTERN_LOCATION_PATH.matcher(location);
-            pm.find();
+            var pathMatcher = PATTERN_LOCATION_PATH.matcher(location);
+            if (!pathMatcher.find()) {
+                continue;
+            }
+            var locationPath = normalizeLocationPath(pathMatcher.group(0));
+            if (locationPath.startsWith("@")) {
+                continue;
+            }
 
-            var xm = PATTERN_LOCATION_PROXY_PASS.matcher(location);
-            xm.find();
+            var fullProxyMatcher = PATTERN_PROXY_PASS.matcher(location);
+            if (!fullProxyMatcher.find()) {
+                continue;
+            }
+            var proxyPassFull = fullProxyMatcher.group(1).trim();
 
-            var xmf = PATTERN_LOCATION_PROXY_PASS_FULL.matcher(location);
-            xmf.find();
+            var hostProxyMatcher = PATTERN_LOCATION_PROXY_PASS.matcher(location);
+            if (!hostProxyMatcher.find()) {
+                continue;
+            }
+            var proxyHost = getProxyHost(proxyPassFull);
+            var proxyPath = normalizeProxyPath(getProxyPath(proxyPassFull));
+            var servicePathKey = toServicePathKey(proxyPath);
 
-            result.add(new ProxyConfiguration(pm.group(0), xm.group(0), xmf.group(0)));
+            result.add(new ProxyConfiguration(locationPath, proxyHost, proxyPath, servicePathKey));
         }
 
         return result;
     }
 
+    private List<String> extractLocationBlocks(String output) {
+        var blocks = new ArrayList<String>();
+        var matcher = PATTERN_LOCATION_START.matcher(output);
+        while (matcher.find()) {
+            int blockStart = matcher.start();
+            int openBraceIndex = output.indexOf('{', matcher.end() - 1);
+
+            int depth = 0;
+            int blockEnd = -1;
+            for (int i = openBraceIndex; i < output.length(); i++) {
+                char ch = output.charAt(i);
+                if (ch == '{') {
+                    depth++;
+                } else if (ch == '}') {
+                    depth--;
+                    if (depth == 0) {
+                        blockEnd = i;
+                        break;
+                    }
+                }
+            }
+
+            if (blockEnd > blockStart) {
+                blocks.add(output.substring(blockStart, blockEnd + 1));
+            }
+        }
+        return blocks;
+    }
+
+    private String normalizeLocationPath(String rawLocation) {
+        var location = rawLocation.trim();
+        var parts = location.split("\\s+");
+        if (("=".equals(parts[0]) || "~".equals(parts[0]) || "~*".equals(parts[0]) || "^~".equals(parts[0]))
+                && parts.length > 1) {
+            return parts[1];
+        }
+        return parts[0];
+    }
+
+    private String getProxyHost(String proxyPassFull) {
+        try {
+            var uri = URI.create(proxyPassFull);
+            return uri.getScheme() + "://" + uri.getHost()
+                    + ((uri.getPort() != -1 && uri.getPort() != 80 && uri.getPort() != 443) ? ":" + uri.getPort() : "");
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private String getProxyPath(String proxyPassFull) {
+        try {
+            return URI.create(proxyPassFull).getPath();
+        } catch (Exception ex) {
+            return "";
+        }
+    }
+
+    private String normalizeProxyPath(String proxyPath) {
+        if (proxyPath.isBlank() || "/".equals(proxyPath)) {
+            return "";
+        }
+        if (proxyPath.endsWith("/")) {
+            return proxyPath.substring(0, proxyPath.length() - 1);
+        }
+        return proxyPath;
+    }
+
+    private String toServicePathKey(String proxyPath) {
+        if (proxyPath.isBlank()) {
+            return null;
+        }
+        return proxyPath;
+    }
 }

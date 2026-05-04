@@ -16,6 +16,7 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.models.OpenAPI;
 import org.mockserver.client.MockServerClient;
 import org.mockserver.mock.Expectation;
+import org.mockserver.model.Delay;
 import org.mockserver.model.MediaType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -198,15 +199,30 @@ public abstract class AbstractTest {
     }
 
     protected void createOpenApiMock(String body) {
-        addExpectation(mockServerClient.when(request().withPath("/q/openapi").withMethod(HttpMethod.GET))
+        createOpenApiMock("/q/openapi", body);
+    }
+
+    protected void createOpenApiMock(String openApiPath, String body) {
+        addExpectation(mockServerClient.when(request().withPath(openApiPath).withMethod(HttpMethod.GET))
                 .respond(httpRequest -> response().withStatusCode(Response.Status.OK.getStatusCode())
                         .withContentType(MediaType.APPLICATION_JSON)
                         .withBody(body)));
     }
 
+    protected void createMockSwaggerUiIndex(String path, Response.Status status) {
+        addExpectation(mockServerClient.when(request().withPath(path + "/swagger-ui/index.html").withMethod(HttpMethod.GET))
+                .respond(httpRequest -> response().withStatusCode(status.getStatusCode())));
+    }
+
     protected void createResponse(String path, String apiPath, Response.Status status) {
         addExpectation(mockServerClient.when(request().withPath(path + apiPath).withMethod(HttpMethod.GET))
                 .respond(httpRequest -> response().withStatusCode(status.getStatusCode())));
+    }
+
+    protected void createDelayedResponse(String path, String apiPath, Response.Status status, long delayMs) {
+        addExpectation(mockServerClient.when(request().withPath(path + apiPath).withMethod(HttpMethod.GET))
+                .respond(httpRequest -> response().withStatusCode(status.getStatusCode())
+                        .withDelay(Delay.milliseconds(delayMs))));
     }
 
     protected void addExpectation(Expectation[] exceptions) {

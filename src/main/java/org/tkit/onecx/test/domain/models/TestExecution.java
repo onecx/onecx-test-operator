@@ -14,15 +14,18 @@ public class TestExecution {
     private String url;
     private Integer code;
     private Status status;
-    private String error;
+    private String detailedStatus;
 
     public enum Status {
 
         OK,
 
-        FAILED,
+        //example: expected 401 response got 403
+        WARNING,
 
-        ERROR;
+        //unable to invoke call (unknowhostexcpetion, timeout and similar)
+        ERROR,
+
+        FAILED
     }
-
 }

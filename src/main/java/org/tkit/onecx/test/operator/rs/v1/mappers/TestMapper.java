@@ -2,9 +2,11 @@ package org.tkit.onecx.test.operator.rs.v1.mappers;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.tkit.onecx.test.domain.models.TestExecution.Status;
 import org.tkit.onecx.test.domain.models.TestRequest;
 import org.tkit.onecx.test.domain.models.TestResponse;
 
+import gen.org.tkit.onecx.test.operator.rs.v1.model.ExecutionStatusDTO;
 import gen.org.tkit.onecx.test.operator.rs.v1.model.SecurityTestRequestDTO;
 import gen.org.tkit.onecx.test.operator.rs.v1.model.SecurityTestResponseDTO;
 
@@ -16,4 +18,9 @@ public interface TestMapper {
     @Mapping(target = "removeExecutionsItem", ignore = true)
     @Mapping(target = "removeWhitelistedPathsItem", ignore = true)
     SecurityTestResponseDTO create(TestResponse data);
+
+    ExecutionStatusDTO create(Status status);
+
+    ExecutionStatusDTO create(TestResponse.Status status);
+
 }

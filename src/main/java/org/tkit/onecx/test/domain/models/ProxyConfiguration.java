@@ -10,12 +10,15 @@ import lombok.ToString;
 public class ProxyConfiguration {
 
     String location;
-    String proxyPass;
-    String proxyPassFull;
+    String proxyHost;
+    String proxyPath;
+    String servicePathKey;
 
-    public ProxyConfiguration(String location, String proxyPass, String proxyPassFull) {
+    public ProxyConfiguration(String location, String proxyHost, String proxyPath,
+            String servicePathKey) {
         this.location = location;
-        this.proxyPass = proxyPass;
-        this.proxyPassFull = proxyPassFull;
+        this.proxyHost = proxyHost;
+        this.proxyPath = proxyPath;
+        this.servicePathKey = servicePathKey;
     }
 }
