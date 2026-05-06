@@ -1,5 +1,6 @@
 package org.tkit.onecx.test.domain.services;
 
+import java.util.List;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -32,13 +33,25 @@ public class SecurityTestScheduler {
     void executeScheduledTests() {
         log.info("Starting scheduled security tests");
 
-        config.privateRun().url().ifPresent(url -> config.privateRun().services()
-                .ifPresent(services -> services.forEach(service -> executeTestForService(url, service))));
-
-        config.publicRun().url().ifPresent(url -> config.publicRun().services()
-                .ifPresent(services -> services.forEach(service -> executeTestForService(url, service))));
+        config.services().forEach(this::executeEnvironment);
 
         log.info("Scheduled security tests completed");
+    }
+
+    private void executeEnvironment(TestRunConfig.UrlServices environment) {
+        var url = environment.url();
+        var services = environment.services();
+
+        if (url.isEmpty() || services.isEmpty() || services.get().isEmpty()) {
+            log.warn("Skipping environment due to missing url or services");
+            return;
+        }
+
+        executeServices(url.get(), services.get());
+    }
+
+    private void executeServices(String url, List<String> services) {
+        services.forEach(service -> executeTestForService(url, service));
     }
 
     private void executeTestForService(String url, String service) {

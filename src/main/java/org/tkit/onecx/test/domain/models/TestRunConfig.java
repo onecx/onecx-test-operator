@@ -14,14 +14,9 @@ public interface TestRunConfig {
     String timer();
 
     /**
-     * Configuration of services used for private test runs.
+     * List of configured test environments with URL and services.
      */
-    UrlServices privateRun();
-
-    /**
-     * Configuration of services used for public test runs.
-     */
-    UrlServices publicRun();
+    List<UrlServices> services();
 
     interface UrlServices {
 
