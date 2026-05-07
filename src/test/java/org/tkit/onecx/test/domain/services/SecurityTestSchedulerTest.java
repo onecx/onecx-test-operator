@@ -49,11 +49,12 @@ class SecurityTestSchedulerTest {
 
         List<TestRequest> requests = requestCaptor.getAllValues();
         assertThat(requests)
-                .allSatisfy(r -> {
-                    assertThat(r.getId()).isNotBlank();
-                    assertThat(r.getUrl()).isNotBlank();
-                    assertThat(r.getService()).isNotBlank();
-                });
+            .hasSize(4)
+            .allSatisfy(r -> {
+                assertThat(r.getId()).isNotBlank();
+                assertThat(r.getUrl()).isNotBlank();
+                assertThat(r.getService()).isNotBlank();
+            });
 
         verify(metrics).incrementRequest("svc-p1", "OK");
         verify(metrics).incrementRequest("svc-p2", "OK");
@@ -95,20 +96,20 @@ class SecurityTestSchedulerTest {
 
     @Test
     void executeScheduledTests_skipsEnvironmentWhenServicesListIsEmpty() {
-        var scheduler = new SecurityTestScheduler();
-        scheduler.testService = mock(TestService.class);
-        scheduler.securityTestMetrics = mock(SecurityTestMetrics.class);
-        scheduler.config = mock(TestRunConfig.class);
+        var sut = new SecurityTestScheduler();
+        sut.testService = mock(TestService.class);
+        sut.securityTestMetrics = mock(SecurityTestMetrics.class);
+        sut.config = mock(TestRunConfig.class);
 
         var environment = mock(TestRunConfig.UrlServices.class);
 
-        when(scheduler.config.services()).thenReturn(List.of(environment));
+        when(sut.config.services()).thenReturn(List.of(environment));
         when(environment.url()).thenReturn(Optional.of("https://example"));
         when(environment.services()).thenReturn(Optional.of(List.of()));
 
-        scheduler.executeScheduledTests();
+        sut.executeScheduledTests();
 
-        verifyNoInteractions(scheduler.testService);
-        verifyNoInteractions(scheduler.securityTestMetrics);
+        verifyNoInteractions(sut.testService);
+        verifyNoInteractions(sut.securityTestMetrics);
     }
 }
