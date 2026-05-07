@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 import java.util.List;
+import java.util.Optional;
 
 import jakarta.inject.Inject;
 
@@ -13,6 +14,7 @@ import org.tkit.onecx.test.domain.metrics.SecurityTestMetrics;
 import org.tkit.onecx.test.domain.models.ServiceException;
 import org.tkit.onecx.test.domain.models.TestRequest;
 import org.tkit.onecx.test.domain.models.TestResponse;
+import org.tkit.onecx.test.domain.models.TestRunConfig;
 
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
@@ -73,5 +75,40 @@ class SecurityTestSchedulerTest {
         verify(metrics).incrementRequest("svc-p2", "ERROR");
         verify(metrics).incrementRequest("svc-u1", "ERROR");
         verify(metrics).incrementRequest("svc-u2", "ERROR");
+    }
+
+    @Test
+    void executeScheduledTests_recordsErrorStatusWhenExecutionThrowsUnexpectedException() {
+        //given
+        when(testService.execute(any(TestRequest.class))).thenThrow(new RuntimeException("unexpected error"));
+
+        //when
+        scheduler.executeScheduledTests();
+
+        //then
+        verify(testService, times(4)).execute(any(TestRequest.class));
+        verify(metrics).incrementRequest("svc-p1", "ERROR");
+        verify(metrics).incrementRequest("svc-p2", "ERROR");
+        verify(metrics).incrementRequest("svc-u1", "ERROR");
+        verify(metrics).incrementRequest("svc-u2", "ERROR");
+    }
+
+    @Test
+    void executeScheduledTests_skipsEnvironmentWhenServicesListIsEmpty() {
+        var scheduler = new SecurityTestScheduler();
+        scheduler.testService = mock(TestService.class);
+        scheduler.securityTestMetrics = mock(SecurityTestMetrics.class);
+        scheduler.config = mock(TestRunConfig.class);
+
+        var environment = mock(TestRunConfig.UrlServices.class);
+
+        when(scheduler.config.services()).thenReturn(List.of(environment));
+        when(environment.url()).thenReturn(Optional.of("https://example"));
+        when(environment.services()).thenReturn(Optional.of(List.of()));
+
+        scheduler.executeScheduledTests();
+
+        verifyNoInteractions(scheduler.testService);
+        verifyNoInteractions(scheduler.securityTestMetrics);
     }
 }
