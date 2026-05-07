@@ -67,6 +67,9 @@ public class SecurityTestScheduler {
         } catch (ServiceException ex) {
             securityTestMetrics.incrementRequest(service, "ERROR");
             log.error("Security test failed for service '{}': {}", service, ex.getMessage());
+        } catch (Exception e) {
+            securityTestMetrics.incrementRequest(service, "ERROR");
+            log.error("Unexpected error during security test for service '{}'", service, e);
         }
     }
 }

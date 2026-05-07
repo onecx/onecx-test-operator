@@ -11,14 +11,6 @@ app:
           fieldPath: metadata.namespace
     - name: ONECX_TEST_SCHEDULER_TIMER
       value: "24h"
-    - name: ONECX_TEST_SCHEDULER_SERVICES__0__URL
-      value: ""
-    - name: ONECX_TEST_SCHEDULER_SERVICES__0__SERVICES
-      value: ""
-    - name: ONECX_TEST_SCHEDULER_SERVICES__1__URL
-      value: ""
-    - name: ONECX_TEST_SCHEDULER_SERVICES__1__SERVICES
-      value: ""
   operator:
     keycloak:
       client:
