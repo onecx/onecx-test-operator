@@ -49,12 +49,12 @@ class SecurityTestSchedulerTest {
 
         List<TestRequest> requests = requestCaptor.getAllValues();
         assertThat(requests)
-            .hasSize(4)
-            .allSatisfy(r -> {
-                assertThat(r.getId()).isNotBlank();
-                assertThat(r.getUrl()).isNotBlank();
-                assertThat(r.getService()).isNotBlank();
-            });
+                .hasSize(4)
+                .allSatisfy(r -> {
+                    assertThat(r.getId()).isNotBlank();
+                    assertThat(r.getUrl()).isNotBlank();
+                    assertThat(r.getService()).isNotBlank();
+                });
 
         verify(metrics).incrementRequest("svc-p1", "OK");
         verify(metrics).incrementRequest("svc-p2", "OK");
