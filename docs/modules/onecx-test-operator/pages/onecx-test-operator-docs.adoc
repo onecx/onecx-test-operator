@@ -20,7 +20,10 @@ quarkus.oidc.ui.auth-server-url=${quarkus.oidc.auth-server-url}
 quarkus.oidc.ui.client-id=${quarkus.oidc.client-id}
 quarkus.oidc.ui.credentials.secret=${quarkus.oidc.credentials.secret}
 quarkus.oidc.ui.application-type=web-app
-onecx.test.scheduler.timer=24h
+quarkus.scheduler.metrics.enabled=true
+quarkus.scheduler.tracing.enabled=true
+quarkus.scheduler.enabled=false
+onecx.test.scheduler.cron=0 0 0 * * ?
 ----
 ====
 
@@ -49,16 +52,6 @@ app:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
-    - name: ONECX_TEST_SCHEDULER_TIMER
-      value: "24h"
-    - name: ONECX_TEST_SCHEDULER_SERVICES_0__URL
-      value: ""
-    - name: ONECX_TEST_SCHEDULER_SERVICES_0__SERVICES
-      value: ""
-    - name: ONECX_TEST_SCHEDULER_SERVICES_1__URL
-      value: ""
-    - name: ONECX_TEST_SCHEDULER_SERVICES_1__SERVICES
-      value: ""
   operator:
     keycloak:
       client:

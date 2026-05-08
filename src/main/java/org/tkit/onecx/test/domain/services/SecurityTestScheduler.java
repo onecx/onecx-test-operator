@@ -1,6 +1,5 @@
 package org.tkit.onecx.test.domain.services;
 
-import java.util.List;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -14,6 +13,7 @@ import org.tkit.onecx.test.domain.models.TestRequest;
 import org.tkit.onecx.test.domain.models.TestRunConfig;
 
 import io.quarkus.scheduler.Scheduled;
+import io.quarkus.scheduler.Scheduled.ConcurrentExecution;
 
 @ApplicationScoped
 public class SecurityTestScheduler {
@@ -29,47 +29,38 @@ public class SecurityTestScheduler {
     @Inject
     TestRunConfig config;
 
-    @Scheduled(every = "{onecx.test.scheduler.timer}")
+    @Scheduled(cron = "{onecx.test.scheduler.cron}", concurrentExecution = ConcurrentExecution.SKIP)
     void executeScheduledTests() {
-        log.info("Starting scheduled security tests");
-
-        config.services().forEach(this::executeEnvironment);
-
+        if (config.services().isEmpty()) {
+            log.info("Skipping scheduled security tests because configuration is empty. cron={}", config.cron());
+            return;
+        }
+        log.info("Starting scheduled security tests. cron={}", config.cron());
+        config.services().forEach(this::executeTests);
         log.info("Scheduled security tests completed");
     }
 
-    private void executeEnvironment(TestRunConfig.UrlServices environment) {
-        var url = environment.url();
-        var services = environment.services();
+    private void executeTests(String environmentKey, TestRunConfig.UrlServices environment) {
+        environment.services().forEach(service -> {
+            var request = new TestRequest();
+            request.setId(UUID.randomUUID().toString());
+            request.setUrl(environment.url());
+            request.setService(service);
 
-        if (url.isEmpty() || services.isEmpty() || services.get().isEmpty()) {
-            log.warn("Skipping environment due to missing url or services");
-            return;
-        }
-
-        executeServices(url.get(), services.get());
-    }
-
-    private void executeServices(String url, List<String> services) {
-        services.forEach(service -> executeTestForService(url, service));
-    }
-
-    private void executeTestForService(String url, String service) {
-        var request = new TestRequest();
-        request.setId(UUID.randomUUID().toString());
-        request.setUrl(url);
-        request.setService(service);
-
-        try {
-            var response = testService.execute(request);
-            securityTestMetrics.incrementRequest(service, response.getStatus().name());
-            log.info("Security test for service '{}': {}", service, response.getStatus());
-        } catch (ServiceException ex) {
-            securityTestMetrics.incrementRequest(service, "ERROR");
-            log.error("Security test failed for service '{}': {}", service, ex.getMessage());
-        } catch (Exception e) {
-            securityTestMetrics.incrementRequest(service, "ERROR");
-            log.error("Unexpected error during security test for service '{}'", service, e);
-        }
+            try {
+                var response = testService.execute(request);
+                securityTestMetrics.incrementRequest(service, response.getStatus().name());
+                log.info("Security test for environment '{}' and service '{}': {}", environmentKey, service,
+                        response.getStatus());
+            } catch (ServiceException ex) {
+                securityTestMetrics.incrementRequest(service, "ERROR");
+                log.error("Security test failed for environment '{}' and service '{}': {}", environmentKey, service,
+                        ex.getMessage());
+            } catch (Exception e) {
+                securityTestMetrics.incrementRequest(service, "ERROR");
+                log.error("Unexpected error during security test for environment '{}' and service '{}'", environmentKey,
+                        service, e);
+            }
+        });
     }
 }

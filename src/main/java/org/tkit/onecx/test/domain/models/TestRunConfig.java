@@ -1,7 +1,7 @@
 package org.tkit.onecx.test.domain.models;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 import io.smallrye.config.ConfigMapping;
 
@@ -11,23 +11,23 @@ public interface TestRunConfig {
     /**
      * Cron expression for the scheduler trigger.
      */
-    String timer();
+    String cron();
 
     /**
-     * List of configured test environments with URL and services.
+     * Configured test environments with URL and services keyed by environment name.
      */
-    List<UrlServices> services();
+    Map<String, UrlServices> services();
 
     interface UrlServices {
 
         /**
          * Base URL of the target environment.
          */
-        Optional<String> url();
+        String url();
 
         /**
          * List of enabled service identifiers.
          */
-        Optional<List<String>> services();
+        List<String> services();
     }
 }
