@@ -135,6 +135,12 @@ h| Version
 | 
 | 3.33.1
 
+| quarkus-scheduler
+
+| 
+| 
+| 3.27.1
+
 | quarkus-openapi-generator-oidc
 
 | 

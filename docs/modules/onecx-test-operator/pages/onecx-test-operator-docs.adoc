@@ -20,6 +20,10 @@ quarkus.oidc.ui.auth-server-url=${quarkus.oidc.auth-server-url}
 quarkus.oidc.ui.client-id=${quarkus.oidc.client-id}
 quarkus.oidc.ui.credentials.secret=${quarkus.oidc.credentials.secret}
 quarkus.oidc.ui.application-type=web-app
+quarkus.scheduler.metrics.enabled=true
+quarkus.scheduler.tracing.enabled=true
+quarkus.scheduler.enabled=false
+onecx.test.scheduler.cron=0 0 0 * * ?
 ----
 ====
 
@@ -54,5 +58,6 @@ app:
         enabled: true
         spec:
           kcConfig:
-            defaultClientScopes: [ ocx-pm:read ]
+            defaultClientScopes: [ocx-pm:read]
+
 ----
