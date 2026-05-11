@@ -32,10 +32,10 @@ public class SecurityTestScheduler {
     @Scheduled(cron = "{onecx.test.scheduler.cron}", concurrentExecution = ConcurrentExecution.SKIP)
     void executeScheduledTests() {
         if (config.services().isEmpty()) {
-            log.info("Skipping scheduled security tests because configuration is empty. cron={}", config.cron());
+            log.info("Skipping scheduled security tests because configuration is empty.");
             return;
         }
-        log.info("Starting scheduled security tests. cron={}", config.cron());
+        log.info("Starting scheduled security tests.");
         config.services().forEach(this::executeTests);
         log.info("Scheduled security tests completed");
     }
